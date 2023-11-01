@@ -39,7 +39,7 @@ getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
 #'
 #' @param geneSym A vector of gene symbols.
 #' @param geneEntrez NULL or a vector of gene Entrez ID.
-#' @param corrIdGenes Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
+#' @param idGeneDF Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param speciesData object returned by `getSpeciesData`. If not NULL `species` argument wont be used.
 #' @param database Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom.
 #' @param customAnnot  Custom annotation database, as a list of terms, each element contain a vector of gene symbols.
@@ -54,7 +54,7 @@ getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
 #' @examples
 #' data("bulkLogCounts")
 #' enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","reactom"))
-getDBterms<-function(geneSym,geneEntrez=NULL, corrIdGenes=NULL, speciesData=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),customAnnot=NULL,
+getDBterms<-function(geneSym,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),customAnnot=NULL,
                      keggDisease=FALSE,species="Human",returnGenesSymbol=TRUE){
     select<-AnnotationDbi::select
     validDBs<-c("kegg","reactom","goBP","goCC","goMF","custom")
@@ -65,16 +65,16 @@ getDBterms<-function(geneSym,geneEntrez=NULL, corrIdGenes=NULL, speciesData=NULL
     }else{
         species<-speciesData$species
     }
-    if(is.null(corrIdGenes)) corrIdGenes<-speciesData$GeneIdTable
+    if(is.null(idGeneDF)) idGeneDF<-speciesData$GeneIdTable
     options(warn=-1)
     if(is.null(geneEntrez)){
-        geneEntrez<-ConvertKey(geneSym,tabKey = corrIdGenes,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
+        geneEntrez<-ConvertKey(geneSym,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
         geneEntrez<-geneEntrez[!is.na(geneEntrez)]
     }
     db_terms<-list()
     if(is.list(customAnnot)){
         db_terms$custom<-lapply(customAnnot,function(x){
-            new_x<-ConvertKey(x,tabKey = corrIdGenes,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
+            new_x<-ConvertKey(x,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
             new_x[!is.na(new_x)]
         })
     }
@@ -97,7 +97,7 @@ getDBterms<-function(geneSym,geneEntrez=NULL, corrIdGenes=NULL, speciesData=NULL
     options(warn=0)
 
     if(returnGenesSymbol){
-        lapply(db_terms,function(db) lapply(db,ConvertKey,tabKey=corrIdGenes,colOldKey = "ENTREZID",colNewKey = "SYMBOL"))
+        lapply(db_terms,function(db) lapply(db,ConvertKey,tabKey=idGeneDF,colOldKey = "ENTREZID",colNewKey = "SYMBOL"))
     }else{
         db_terms
     }

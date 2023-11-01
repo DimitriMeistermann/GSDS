@@ -1,6 +1,6 @@
 activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE)
 {
-    res <- lapply(geneList, function(genesOfEl) activScorePCA(exprMatrix,
+    res <- lapply(geneList, function(genesOfEl) oob::activScorePCA(exprMatrix,
                                                               genesOfEl, returnContribution = TRUE, scale = scale,
                                                               center = center))
     list(activScoreMat = sapply(res, function(x) x$activScore),
@@ -14,7 +14,7 @@ activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE
 #' @description Perform a PCA for each gene set, from the matrix of [ genes from gene set × all samples ]. Return the first PCs as activations scores of the gene sets.
 #'
 #' @param expressionMatrix An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If `db_terms` is not given, must be named by gene symbols.
-#' @param corrIdGenes Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
+#' @param idGeneDF Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param scaleScores Logical. Divide expression of gene by its standard deviation before doing the PCA.
 #' @param centerScores Logical. Subtract mean to gene expression before doing the PCA.
 #' @param database Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom.
@@ -38,7 +38,7 @@ activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
 #' #same as
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,database = "kegg")
-computeActivationScore<-function(expressionMatrix,corrIdGenes=NULL,scaleScores=FALSE,centerScores=TRUE,
+computeActivationScore<-function(expressionMatrix,idGeneDF=NULL,scaleScores=FALSE,centerScores=TRUE,
                                  database=c("kegg","reactom","goBP","goCC","goMF"),
                                  maxSize=500,minSize=2,customAnnot=NULL,
                                  keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL){
@@ -46,7 +46,7 @@ computeActivationScore<-function(expressionMatrix,corrIdGenes=NULL,scaleScores=F
     if(!class(expressionMatrix)[1]%in%c("data.frame","matrix")) stop("expressionMatrix should be a matrix or a dataframe")
     if(class(rownames(expressionMatrix))!="character") stop("rows of expression matrix should be named with genes symbol")
     if(is.null(db_terms)){
-        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), corrIdGenes=corrIdGenes,database=database,
+        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), idGeneDF=idGeneDF,database=database,
                              customAnnot=customAnnot,keggDisease=keggDisease,species=species,returnGenesSymbol = TRUE)
     }
 

@@ -17,4 +17,5 @@ biocViews:
 	DifferentialExpression
 VignetteBuilder: knitr
 Imports: 
-    fgsea
+    fgsea,
+    oob

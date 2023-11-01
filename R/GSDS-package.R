@@ -2,7 +2,8 @@
 "_PACKAGE"
 
 ## usethis namespace: start
-#' @importFrom fgsea reactomePathways
 #' @import grid
+#' @importFrom fgsea reactomePathways
+#' @importFrom oob activScorePCA
 ## usethis namespace: end
 NULL

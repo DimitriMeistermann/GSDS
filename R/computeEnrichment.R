@@ -1,7 +1,7 @@
 #' Functional class scoring enrichment (fgsea algorithm)
 #'
 #' @param x vector or dataframe/matrix of one column. Values are used to classify the genes, example, it can be Log2(Fold-Change0). Genes are contained in the names/rownames of the vector/dataframe. Example of valid x: x<-rnorm(n = 4); names(x)<-c("GATA2","SOX17","KLF4","POU5F1")
-#' @param corrIdGenes Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
+#' @param idGeneDF Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param database Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom
 #' @param maxSize maximum number of gene in each term
 #' @param minSize Minimum number of gene in each term
@@ -31,7 +31,7 @@
 #' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 #' resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
 #' View(resEnrich)
-enrich.fcs<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
+enrich.fcs<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
                      maxSize=500,minSize=2,customAnnot=NULL,returnGenes=FALSE,
                      keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL,...){
     if(is.data.frame(x) | is.matrix(x)){
@@ -41,7 +41,7 @@ enrich.fcs<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
     }
 
     if(class(x)!="numeric") stop("Values must be numeric")
-    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), corrIdGenes=corrIdGenes,database=database,
+    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), idGeneDF=idGeneDF,database=database,
                                                customAnnot=customAnnot,keggDisease=keggDisease,species=species)
     if(length(db_terms)==0) stop("Error, no term in any database was found")
     res<-list()
@@ -66,7 +66,7 @@ enrich.fcs<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
 #' Genes are contained in the names/rownames of the vector/dataframe.
 #' Example of valid x: x<-c(TRUE,TRUE,FALSE,FALSE); names(x)<-c("GATA2","SOX17","KLF4","POU5F1").
 #' In this case, GATA2, SOX17, KLF4, POU5F1 are the universe of gene and GATA2 and SOX17 are the genes of interest
-#' @param corrIdGenes  Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
+#' @param idGeneDF  Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param database Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom
 #' @param minSize Minimum number of gene in each term.
 #' @param maxSize Maximum number of gene in each term.
@@ -93,7 +93,7 @@ enrich.fcs<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
 #' vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
 #' resEnrich<-enrich.ora(vectorIsDE,database = "kegg",species = "Human")
 #' View(resEnrich)
-enrich.ora<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
+enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
                      minSize=2,maxSize=500,returnGenes=FALSE, keggDisease=FALSE,species="Human",
                      customAnnot=NULL,db_terms=NULL,speciesData=NULL){
     validDBs<-c("kegg","reactom","goBP","goCC","goMF","custom")
@@ -109,7 +109,7 @@ enrich.ora<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
     if(class(x)!="logical") stop("Values must be logical (TRUE or FALSE)")
     if(class(names(x))!="character") stop("Values must be named with genes symbol")
 
-    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), corrIdGenes=corrIdGenes,database=database,customAnnot=customAnnot,keggDisease=keggDisease,species=species)
+    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), idGeneDF=idGeneDF,database=database,customAnnot=customAnnot,keggDisease=keggDisease,species=species)
 
     nInterest<-length(which(x))
     nuniverse<-length(x)
@@ -170,7 +170,7 @@ enrich.ora<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
 #' 1. Name of the experimental variable that have to be used for differential activation. Must be a column name of `colData`.
 #' 2. Condition considered as the reference.
 #' 3. Condition considered as the target group.
-#' @param corrIdGenes Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
+#' @param idGeneDF Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param database Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom.
 #' @param maxSize Maximum number of gene in each term.
 #' @param minSize Minimum number of gene in each term.
@@ -198,18 +198,18 @@ enrich.ora<-function(x, corrIdGenes=NULL,database=c("kegg","reactom","goBP","goC
 #'
 #' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-#' resGSDA<-GSDA(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
+#' resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
 #'
 #' #or
-#' resGSDA<-GSDA(expressionMatrix = bulkLogCounts,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
-GSDA<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast, corrIdGenes=NULL,
+#' resGSDS<-GSDS(expressionMatrix = bulkLogCounts,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
+GSDS<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast, idGeneDF=NULL,
                database=c("kegg","reactom","goBP","goCC","goMF"),
                maxSize=500,minSize=2,customAnnot=NULL,keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL){
 
     if(is.null(geneSetActivScore) & is.null(expressionMatrix)) stop("At least expressionMatrix or geneSetEigens must be given")
 
     if(is.null(db_terms)){
-        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), corrIdGenes=corrIdGenes,database=database,
+        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), idGeneDF=idGeneDF,database=database,
                              customAnnot=customAnnot,keggDisease=keggDisease,species=species,returnGenesSymbol = TRUE)
     }
 
