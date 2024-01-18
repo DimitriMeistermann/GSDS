@@ -11,8 +11,8 @@
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts")
-#' data("sampleAnnot")
+#' data("bulkLogCounts", package = "oob")
+#' data("sampleAnnot", package = "oob")
 #'
 #' library(ComplexHeatmap)
 #'

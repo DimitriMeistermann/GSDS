@@ -27,7 +27,7 @@
 #' @export
 #'
 #' @examples
-#' data("DEgenesPrime_Naive")
+#' data("DEgenesPrime_Naive",package = "oob")
 #' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 #' resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
 #' View(resEnrich)
@@ -56,7 +56,6 @@ enrich.fcs<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
     res$padj<-p.adjust(res$pval,method = "BH")
     return(data.frame(res))
 }
-
 
 
 #' Over Representation Analysis (enrichment, Fischer tests)
@@ -133,14 +132,7 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
             parameterList4Enrich[[i]]<-list(intersectionSize=nGeneOfInterestByterm[i], setSizes=c(nInterest,nGeneByterm[i]), universeSize=nuniverse)
         }
 
-        resEnrich<-lapply(parameterList4Enrich,function(params) do.call("enrichSetIntersection",params))
-
-        #' - observed: observed number of elements in intersection (same value as `intersectionSize`)
-        #' - expected: expected number of elements in intersection.
-        #' - log2OE: log2 of observed/expected ratio
-        #' - pval: pvalue (upper tail) where NULL hypotheses is that observed intersection is from the distribution of intersection size with p = nExpected / nUniverse.
-        #'
-
+        resEnrich<-lapply(parameterList4Enrich,function(params) do.call("oob::enrichSetIntersection",params))
         results[[db]]$nGene<-nGeneByterm
 
         results[[db]]$obsOverlap<-nGeneOfInterestByterm
@@ -198,11 +190,11 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
 #'
 #' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-#' resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
+#' resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot, contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
 #'
 #' #or
 #' resGSDS<-GSDS(expressionMatrix = bulkLogCounts,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
-GSDS<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast, idGeneDF=NULL,
+GSDS<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast , idGeneDF=NULL,
                database=c("kegg","reactom","goBP","goCC","goMF"),
                maxSize=500,minSize=2,customAnnot=NULL,keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL){
 
@@ -227,7 +219,7 @@ GSDS<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast, id
         }
 
         db_terms[[db]]<-db_terms[[db]][rownames(activScorePerPathway)]
-        res[[db]]<-dfres<-data.frame(term=names(db_terms[[db]]),multiLinearModel(activScorePerPathway,colData,contrast),database=db,
+        res[[db]]<-dfres<-data.frame(term=names(db_terms[[db]]),oob::multiLinearModel(activScorePerPathway,colData,contrast = contrast),database=db,
                                      size=sapply(db_terms[[db]],length),sd=apply(activScorePerPathway,1,sd),row.names = NULL)
     }
     do.call("rbind", res)

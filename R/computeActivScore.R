@@ -1,8 +1,72 @@
+
+#' Compute the activation score of a gene set from 1st component of its PCA
+#'
+#' @param exprMatrix A matrix of numeric with rows as features (in the RNA-Seq context, log counts).
+#' @param genes A character vector. The gene set where the activation score has to be computed. Must be a subset of `exprMatrix` row names.
+#' @param scale  Logical. Divide features by their standard deviation.
+#' @param center Logical. Subtract features by their average.
+#' @param returnContribution Logical. Return list with activation score and contribution of genes to the activation score.
+#'
+#' @return A vector of numeric corresponding to activation scores, named by genes. If `returnContribution` return a list with activation scores and contributions of genes.
+#' @export
+#'
+#' @examples
+#' data("bulkLogCounts", package = "oob")
+#' keggData<-getDBterms(rownames(bulkLogCounts),database = "kegg")
+#' geneSet<-keggData$kegg$`hsa00190 Oxidative phosphorylation`
+#' geneSet<-intersect(geneSet,rownames(bulkLogCounts))
+#' activScorePCA(bulkLogCounts,genes = geneSet)
+#' activScorePCA(bulkLogCounts,genes = geneSet,returnContribution = TRUE)
+activScorePCA <-
+    function(exprMatrix,
+             genes,
+             scale = FALSE,
+             center = TRUE,
+             returnContribution = FALSE) {
+        if(sum(!genes %in% rownames(exprMatrix))>0) stop("genes should be a subset of exprMatrix row names")
+        pca <-
+            oob::fastPCA(exprMatrix[genes, ],
+                    center = center,
+                    scale = scale,
+                    nPC = 1)
+        activScore <- pca$x[, 1]
+        contribution <- pca$rotation[, 1]
+        if (cor(colMeans(exprMatrix[genes, ]), activScore) < 0) {
+            activScore <- -activScore
+            contribution <- -contribution
+        }
+        if (returnContribution) {
+            list(activScore = activScore, contribution = contribution)
+        } else{
+            activScore
+        }
+    }
+
+
+#' Compute activation score for a list of gene sets.
+#'
+#' @param exprMatrix A matrix of expression values, genes as rows and samples as columns.
+#' @param geneList A list of gene sets, each element is a vector of genes that exist in `exprMatrix` row names.
+#' @param scale Logical. Divide expression of gene by its standard deviation before doing the PCA.
+#' @param center Logical. Subtract mean to gene expression before doing the PCA.
+#'
+#' @return A list with two elements:
+#' - activScoreMat: A matrix of activation score, with gene sets as rows and samples as columns.
+#' - contributionList: A list of contribution (or weight) to activation score of each gene per gene set.
+#' @export
+#'
+#' @examples
+#' data("bulkLogCounts", package = "oob")
+#' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
+#' geneSetActivScore<-activeScorePCAlist(bulkLogCounts,geneList = keggDB[[1]])
+
 activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE)
 {
-    res <- lapply(geneList, function(genesOfEl) oob::activScorePCA(exprMatrix,
+    res <- lapply(geneList, function(genesOfEl) activScorePCA(exprMatrix,
                                                               genesOfEl, returnContribution = TRUE, scale = scale,
                                                               center = center))
+
+    for(genesOfEl in geneList) activScorePCA(exprMatrix, genesOfEl, returnContribution = TRUE, scale = scale, center = center)
     list(activScoreMat = sapply(res, function(x) x$activScore),
          contributionList = lapply(res, function(x) x$contribution))
 }
@@ -33,7 +97,7 @@ activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts")
+#' data("bulkLogCounts", package = "oob")
 #' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
 #' #same as
@@ -57,7 +121,7 @@ computeActivationScore<-function(expressionMatrix,idGeneDF=NULL,scaleScores=FALS
         nGenePerTerm<-sapply(database,length)
         database<-database[nGenePerTerm>minSize & nGenePerTerm<maxSize]
 
-        return(activeScorePCAlist(exprMatrix, database, scale = scaleScores))
+        return(activeScorePCAlist(expressionMatrix, database, scale = scaleScores))
     })
 }
 
@@ -74,7 +138,7 @@ computeActivationScore<-function(expressionMatrix,idGeneDF=NULL,scaleScores=FALS
 #' @export
 #'
 #' @examples
-#' data("DEgenesPrime_Naive")
+#' data("DEgenesPrime_Naive", package = "oob")
 #' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 fcsScoreDEgenes<-function(genes,pvalues,logFoldChanges,logPval=FALSE){
     if( sum(length(genes) == c(length(pvalues),length(logFoldChanges))) <2) stop("genes, pvalues and logPval should have the same length")

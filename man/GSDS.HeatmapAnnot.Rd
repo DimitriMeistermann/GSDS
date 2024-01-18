@@ -27,8 +27,8 @@ A HeatmapAnnotation object. Genes on the left side of the vertical line are cont
 Displaying most neg and pos gene contribution on a GSDS heatmap.
 }
 \examples{
-data("bulkLogCounts")
-data("sampleAnnot")
+data("bulkLogCounts", package = "oob")
+data("sampleAnnot", package = "oob")
 
 library(ComplexHeatmap)
 

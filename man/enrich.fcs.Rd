@@ -6,7 +6,7 @@
 \usage{
 enrich.fcs(
   x,
-  corrIdGenes = NULL,
+  idGeneDF = NULL,
   database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
   maxSize = 500,
   minSize = 2,
@@ -22,7 +22,7 @@ enrich.fcs(
 \arguments{
 \item{x}{vector or dataframe/matrix of one column. Values are used to classify the genes, example, it can be Log2(Fold-Change0). Genes are contained in the names/rownames of the vector/dataframe. Example of valid x: x<-rnorm(n = 4); names(x)<-c("GATA2","SOX17","KLF4","POU5F1")}
 
-\item{corrIdGenes}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
+\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
 
 \item{database}{Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom}
 
@@ -62,7 +62,7 @@ A dataframe with the following columns:
 Functional class scoring enrichment (fgsea algorithm)
 }
 \examples{
-data("DEgenesPrime_Naive")
+data("DEgenesPrime_Naive",package = "oob")
 fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
 View(resEnrich)

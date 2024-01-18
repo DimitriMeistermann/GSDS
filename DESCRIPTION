@@ -9,7 +9,7 @@ Description: More about what it does (maybe more than one line)
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.0
 Roxygen: list(markdown = TRUE)
 biocViews:
 	Software,
@@ -17,5 +17,7 @@ biocViews:
 	DifferentialExpression
 VignetteBuilder: knitr
 Imports: 
+    AnnotationDbi,
     fgsea,
+    gage,
     oob

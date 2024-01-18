@@ -2,7 +2,6 @@
 % Please edit documentation in R/GSDS-package.R
 \docType{package}
 \name{GSDS-package}
-\alias{GSDS}
 \alias{GSDS-package}
 \title{GSDS: What the Package Does (Title Case)}
 \description{

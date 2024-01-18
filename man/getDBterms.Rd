@@ -5,15 +5,16 @@
 \title{Download database of term/pathway for enrichment analyses.}
 \usage{
 getDBterms(
-  geneSym,
+  geneSym = NULL,
   geneEntrez = NULL,
-  corrIdGenes = NULL,
+  idGeneDF = NULL,
   speciesData = NULL,
   database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
   customAnnot = NULL,
   keggDisease = FALSE,
   species = "Human",
-  returnGenesSymbol = TRUE
+  returnGenesSymbol = TRUE,
+  filter_genes = TRUE
 )
 }
 \arguments{
@@ -21,7 +22,7 @@ getDBterms(
 
 \item{geneEntrez}{NULL or a vector of gene Entrez ID.}
 
-\item{corrIdGenes}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
+\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
 
 \item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
 
@@ -34,6 +35,8 @@ getDBterms(
 \item{species}{Character. Shortname of the species as described in \code{data("bods")}.}
 
 \item{returnGenesSymbol}{Logical, return gene symbol in each term instead of Entrez ID.}
+
+\item{filter_genes}{Logical, filter genes that are not in the database.}
 }
 \value{
 A list where each element is a database that contain a list of term with the associated gene symbols.

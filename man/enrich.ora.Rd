@@ -6,7 +6,7 @@
 \usage{
 enrich.ora(
   x,
-  corrIdGenes = NULL,
+  idGeneDF = NULL,
   database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
   minSize = 2,
   maxSize = 500,
@@ -25,7 +25,7 @@ Genes are contained in the names/rownames of the vector/dataframe.
 Example of valid x: x<-c(TRUE,TRUE,FALSE,FALSE); names(x)<-c("GATA2","SOX17","KLF4","POU5F1").
 In this case, GATA2, SOX17, KLF4, POU5F1 are the universe of gene and GATA2 and SOX17 are the genes of interest}
 
-\item{corrIdGenes}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
+\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
 
 \item{database}{Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom}
 
@@ -65,9 +65,4 @@ data("DEgenesPrime_Naive")
 vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
 resEnrich<-enrich.ora(vectorIsDE,database = "kegg",species = "Human")
 View(resEnrich)
-- observed: observed number of elements in intersection (same value as `intersectionSize`)
-- expected: expected number of elements in intersection.
-- log2OE: log2 of observed/expected ratio
-- pval: pvalue (upper tail) where NULL hypotheses is that observed intersection is from the distribution of intersection size with p = nExpected / nUniverse.
-
 }

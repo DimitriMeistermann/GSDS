@@ -6,7 +6,7 @@
 \usage{
 computeActivationScore(
   expressionMatrix,
-  corrIdGenes = NULL,
+  idGeneDF = NULL,
   scaleScores = FALSE,
   centerScores = TRUE,
   database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
@@ -22,7 +22,7 @@ computeActivationScore(
 \arguments{
 \item{expressionMatrix}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols.}
 
-\item{corrIdGenes}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
+\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
 
 \item{scaleScores}{Logical. Divide expression of gene by its standard deviation before doing the PCA.}
 
@@ -53,7 +53,7 @@ and the list of contribution (or weight) to activation score of each gene per ge
 Perform a PCA for each gene set, from the matrix of \link{ genes from gene set × all samples }. Return the first PCs as activations scores of the gene sets.
 }
 \examples{
-data("bulkLogCounts")
+data("bulkLogCounts", package = "oob")
 keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
 #same as

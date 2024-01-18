@@ -46,6 +46,7 @@ getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
 #' @param keggDisease Logical. Retain kegg disease term in kegg database?
 #' @param species Character. Shortname of the species as described in `data("bods")`.
 #' @param returnGenesSymbol Logical, return gene symbol in each term instead of Entrez ID.
+#' @param filter_genes Logical, filter genes that are not in the database.
 #'
 #' @return
 #' A list where each element is a database that contain a list of term with the associated gene symbols.
@@ -54,8 +55,8 @@ getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
 #' @examples
 #' data("bulkLogCounts")
 #' enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","reactom"))
-getDBterms<-function(geneSym,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),customAnnot=NULL,
-                     keggDisease=FALSE,species="Human",returnGenesSymbol=TRUE){
+getDBterms<-function(geneSym = NULL,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),customAnnot=NULL,
+                     keggDisease=FALSE,species="Human",returnGenesSymbol=TRUE, filter_genes = TRUE){
     select<-AnnotationDbi::select
     validDBs<-c("kegg","reactom","goBP","goCC","goMF","custom")
     if(sum(database%in%validDBs)<length(database)) stop(paste0("Error, valid values for database are: ",paste0(validDBs,collapse=", ")))
@@ -68,13 +69,14 @@ getDBterms<-function(geneSym,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,da
     if(is.null(idGeneDF)) idGeneDF<-speciesData$GeneIdTable
     options(warn=-1)
     if(is.null(geneEntrez)){
-        geneEntrez<-ConvertKey(geneSym,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
+        if(is.null(geneSym)) stop("You must give a value to geneSym or geneEntrez")
+        geneEntrez<-oob::ConvertKey(geneSym,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
         geneEntrez<-geneEntrez[!is.na(geneEntrez)]
     }
     db_terms<-list()
     if(is.list(customAnnot)){
         db_terms$custom<-lapply(customAnnot,function(x){
-            new_x<-ConvertKey(x,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
+            new_x<-oob::ConvertKey(x,tabKey = idGeneDF,colOldKey = "SYMBOL",colNewKey = "ENTREZID")
             new_x[!is.na(new_x)]
         })
     }
@@ -96,8 +98,12 @@ getDBterms<-function(geneSym,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,da
     }
     options(warn=0)
 
+    if(filter_genes){
+        db_terms<-lapply(db_terms,function(db) lapply(db,function(x) x[x%in%geneEntrez]))
+    }
+
     if(returnGenesSymbol){
-        lapply(db_terms,function(db) lapply(db,ConvertKey,tabKey=idGeneDF,colOldKey = "ENTREZID",colNewKey = "SYMBOL"))
+        lapply(db_terms,function(db) lapply(db,oob::ConvertKey,tabKey=idGeneDF,colOldKey = "ENTREZID",colNewKey = "SYMBOL"))
     }else{
         db_terms
     }

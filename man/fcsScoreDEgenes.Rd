@@ -22,6 +22,6 @@ A vector of numeric corresponding to interest scores, named by genes.
 Compute a "interest score" for a set of genes. Useful for GSEA.
 }
 \examples{
-data("DEgenesPrime_Naive")
+data("DEgenesPrime_Naive", package = "oob")
 fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 }
