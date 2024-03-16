@@ -4,12 +4,10 @@
 \alias{getSpeciesData}
 \title{Return gene id correspondence, GO species code and KEGG species code}
 \usage{
-getSpeciesData(sample.species = "Human", updateSpeciesPackage = FALSE)
+getSpeciesData(sample.species = "Human")
 }
 \arguments{
 \item{sample.species}{Character. Shortname of the species as described in \code{data("bods")}.}
-
-\item{updateSpeciesPackage}{Logical. Download or update automatically the annotation org.db package corresponding to the species.}
 }
 \value{
 A list describing specific data for the species (gene IDs, annotation package...).
@@ -18,9 +16,12 @@ A list describing specific data for the species (gene IDs, annotation package...
 Return gene id correspondence, GO species code and KEGG species code
 }
 \examples{
-library(gage)
-data(bods)
-bods
-getSpeciesData("Human")
-getSpeciesData("Mouse")
+require(BiocManager)
+require(org.Hs.eg.db)
+
+getSpeciesData("Human") |> str()
+
+#Available species
+data("bods", package = "gage")
+bods[,"species"]
 }

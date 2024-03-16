@@ -43,10 +43,10 @@ If this argument is not NULL, no additional database are downloaded.}
 
 \item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
 
-\item{...}{Additionnal parameters that are passed to fgsea}
+\item{...}{Additional parameters that are passed to fgsea}
 }
 \value{
-A dataframe with the following columns:
+A data frame with the following columns:
 \itemize{
 \item pathway: name of the pathway/term
 \item pval: an enrichment p-value
@@ -63,7 +63,8 @@ Functional class scoring enrichment (fgsea algorithm)
 }
 \examples{
 data("DEgenesPrime_Naive",package = "oob")
-fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
+fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
+    DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
-View(resEnrich)
+head(resEnrich)
 }

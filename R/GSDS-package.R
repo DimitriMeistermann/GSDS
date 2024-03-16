@@ -11,5 +11,9 @@
 #' @importFrom gage kegg.gsets
 #' @importFrom oob ConvertKey
 #' @importFrom oob fastPCA
+#' @importFrom oob enrichSetIntersection
+#' @importFrom stats cor lm p.adjust sd
+#' @importFrom utils data
 ## usethis namespace: end
 NULL
+

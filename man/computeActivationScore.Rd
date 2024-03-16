@@ -5,7 +5,8 @@
 \title{Compute the activation score of gene sets from an expression matrix.}
 \usage{
 computeActivationScore(
-  expressionMatrix,
+  exprMatrix,
+  transpose = TRUE,
   idGeneDF = NULL,
   scaleScores = FALSE,
   centerScores = TRUE,
@@ -20,7 +21,9 @@ computeActivationScore(
 )
 }
 \arguments{
-\item{expressionMatrix}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols.}
+\item{exprMatrix}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols.}
+
+\item{transpose}{Logical. If TRUE, \code{exprMatrix} is transposed with \code{t()} before computing the PCA.}
 
 \item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
 
@@ -50,7 +53,7 @@ For each database, contain a list of activation score, with gene sets as rows an
 and the list of contribution (or weight) to activation score of each gene per gene set.
 }
 \description{
-Perform a PCA for each gene set, from the matrix of \link{ genes from gene set × all samples }. Return the first PCs as activations scores of the gene sets.
+Perform a PCA for each gene set, from the matrix of \emph{genes from gene set × all samples}. Return the first PCs as activation scores of the gene sets.
 }
 \examples{
 data("bulkLogCounts", package = "oob")

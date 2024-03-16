@@ -23,5 +23,6 @@ Compute a "interest score" for a set of genes. Useful for GSEA.
 }
 \examples{
 data("DEgenesPrime_Naive", package = "oob")
-fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
+fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
+    DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 }

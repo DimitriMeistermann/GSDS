@@ -3,8 +3,20 @@
 \docType{package}
 \name{GSDS-package}
 \alias{GSDS-package}
-\title{GSDS: What the Package Does (Title Case)}
+\title{GSDS: Gene Set Differential Scoring (GSDS)}
 \description{
-More about what it does (maybe more than one line) Use four spaces when indenting paragraphs within the Description.
+This package is focused on functional enrichment. It provide utilities for downloading gene sets from popular databases, perform over-representation analysis (ORA) and gene set enrichment analysis (GSEA). It also provide an utility to compute an activation score for each gene set in each sample using a PCA (similar to Pathway Level analysis of Gene Expression or PLAGE). This gene score is use to perform a Gene Set Differential Scoring (GSDS) to identify gene sets that are differentially activated between two conditions.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/DimitriMeistermann/GSDS}
+  \item Report bugs at \url{https://github.com/DimitriMeistermann/GSDS/issues}
+}
+
+}
+\author{
+\strong{Maintainer}: Dimitri Meistermann \email{dimitri.meistermann@helsinki.fi} (\href{https://orcid.org/0000-0001-6614-2325}{ORCID})
+
 }
 \keyword{internal}

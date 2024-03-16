@@ -12,10 +12,10 @@
 #' @param db_terms A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.
 #' If this argument is not NULL, no additional database are downloaded.
 #' @param speciesData  object returned by `getSpeciesData`. If not NULL `species` argument wont be used.
-#' @param ... Additionnal parameters that are passed to fgsea
+#' @param ... Additional parameters that are passed to fgsea
 #'
 #' @return
-#' A dataframe with the following columns:
+#' A data frame with the following columns:
 #' - pathway: name of the pathway/term
 #' - pval: an enrichment p-value
 #' - padj: a BH-adjusted p-value
@@ -28,19 +28,22 @@
 #'
 #' @examples
 #' data("DEgenesPrime_Naive",package = "oob")
-#' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
+#' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
+#'     DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 #' resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
-#' View(resEnrich)
+#' head(resEnrich)
 enrich.fcs<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
                      maxSize=500,minSize=2,customAnnot=NULL,returnGenes=FALSE,
                      keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL,...){
     if(is.data.frame(x) | is.matrix(x)){
+        if(is.null(rownames(x))) stop("If input format is a matrix/dataframe, row should be named with gene symbols")
         tempx<-x
         x<-tempx[,1]
         names(x)<-rownames(tempx)
     }
 
-    if(class(x)!="numeric") stop("Values must be numeric")
+    if(is.null(names(x))) stop("Values should be named with gene symbols")
+    if(!is.numeric(x)) stop("Values must be numeric")
     if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), idGeneDF=idGeneDF,database=database,
                                                customAnnot=customAnnot,keggDisease=keggDisease,species=species)
     if(length(db_terms)==0) stop("Error, no term in any database was found")
@@ -88,10 +91,10 @@ enrich.fcs<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
 #' @export
 #'
 #' @examples
-#' data("DEgenesPrime_Naive")
+#' data("DEgenesPrime_Naive" ,package = "oob")
 #' vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
 #' resEnrich<-enrich.ora(vectorIsDE,database = "kegg",species = "Human")
-#' View(resEnrich)
+#' head(resEnrich)
 enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),
                      minSize=2,maxSize=500,returnGenes=FALSE, keggDisease=FALSE,species="Human",
                      customAnnot=NULL,db_terms=NULL,speciesData=NULL){
@@ -105,10 +108,11 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
         names(x)<-rownames(tempx)
     }
 
-    if(class(x)!="logical") stop("Values must be logical (TRUE or FALSE)")
-    if(class(names(x))!="character") stop("Values must be named with genes symbol")
+    if(!is.logical(x)) stop("Values must be logical (TRUE or FALSE)")
+    if(!is.character(names(x))) stop("Values must be named with genes symbol")
 
-    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), idGeneDF=idGeneDF,database=database,customAnnot=customAnnot,keggDisease=keggDisease,species=species)
+    if(is.null(db_terms)) db_terms<-getDBterms(geneSym=names(x), idGeneDF=idGeneDF,
+                                               database=database,customAnnot=customAnnot,keggDisease=keggDisease,species=species)
 
     nInterest<-length(which(x))
     nuniverse<-length(x)
@@ -117,27 +121,29 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
     for(db in names(db_terms)){
         len_term<-sapply(db_terms[[db]],length)
         db_terms[[db]]<-db_terms[[db]][len_term>=minSize & len_term<=maxSize]
+        terms<-db_terms[[db]]
 
-        nGeneByterm<-sapply(db_terms[[db]],length)
-        nGeneOfInterestByterm<-sapply( db_terms[[db]],function(term){
+        nGeneByterm<-sapply(terms,length)
+        nGeneOfInterestByterm<-sapply( terms,function(term){
             return(length(which(x[term])))
         })
 
-        results[[db]]<-data.frame(row.names = names(db_terms[[db]]))
-        results[[db]]$term <- names(db_terms[[db]])
+
+        results[[db]]<-data.frame(row.names = names(terms))
+        results[[db]]$term <- names(terms)
         results[[db]]$database<-db
 
-        parameterList4Enrich<-vector(mode="list", length = length(term))
-        for(i in seq_along(term)){
+        parameterList4Enrich<-vector(mode="list", length = length(terms))
+        for(i in seq_along(terms)){
             parameterList4Enrich[[i]]<-list(intersectionSize=nGeneOfInterestByterm[i], setSizes=c(nInterest,nGeneByterm[i]), universeSize=nuniverse)
         }
 
-        resEnrich<-lapply(parameterList4Enrich,function(params) do.call("oob::enrichSetIntersection",params))
+        resEnrich<-lapply(parameterList4Enrich,function(params) do.call("enrichSetIntersection",params))
         results[[db]]$nGene<-nGeneByterm
 
         results[[db]]$obsOverlap<-nGeneOfInterestByterm
         results[[db]]$expectOverlap<- sapply(resEnrich, function(x) x$expected)
-        results[[db]]$log2OE<- sapply(resEnrich, function(x) x$log2OE)
+        results[[db]]$OEdeviation<- sapply(resEnrich, function(x) x$OEdeviation)
         results[[db]]$pval<- sapply(resEnrich, function(x) x$pval)
         results[[db]]$padj<-0
 
@@ -155,9 +161,9 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
 #' Gene Set Differential Scoring (GSDS)
 #'
 #' @param geneSetActivScore A list of database with an element "eigen" containing the matrix of gene set activation score (see what `computeActivationScore` returns).
-#' If NULL, this is computed automatically from the `expressionMatrix` and the gene set database given via `db_terms` or requested via `database`.
-#' @param expressionMatrix An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If `db_terms` is not given, must be named by gene symbols.
-#' @param colData An annotation dataframe. Each column is a feature, each row a sample. Same number of samples than in `expressionMatrix`.
+#' If NULL, this is computed automatically from the `exprMatrix` and the gene set database given via `db_terms` or requested via `database`.
+#' @param exprMatrix An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If `db_terms` is not given, must be named by gene symbols.
+#' @param colData An annotation dataframe. Each column is a feature, each row a sample. Same number of samples than in `exprMatrix`.
 #' @param contrast A vector of 3 character.
 #' 1. Name of the experimental variable that have to be used for differential activation. Must be a column name of `colData`.
 #' 2. Condition considered as the reference.
@@ -185,45 +191,144 @@ enrich.ora<-function(x, idGeneDF=NULL,database=c("kegg","reactom","goBP","goCC",
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts")
-#' data("sampleAnnot")
+#' data("bulkLogCounts", package = "oob")
+#' data("sampleAnnot", package = "oob")
 #'
 #' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-#' resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot, contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
+#' resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,
+#'     contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
 #'
-#' #or
-#' resGSDS<-GSDS(expressionMatrix = bulkLogCounts,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
-GSDS<-function(geneSetActivScore=NULL,expressionMatrix=NULL,colData,contrast , idGeneDF=NULL,
-               database=c("kegg","reactom","goBP","goCC","goMF"),
-               maxSize=500,minSize=2,customAnnot=NULL,keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL){
+#' # or
+#' resGSDS<-GSDS(exprMatrix = bulkLogCounts,colData = sampleAnnot,
+#'     contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
+#'
+#' head(resGSDS)
+GSDS <-
+    function(geneSetActivScore = NULL,
+             exprMatrix = NULL,
+             colData,
+             contrast ,
+             idGeneDF = NULL,
+             database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
+             maxSize = 500,
+             minSize = 2,
+             customAnnot = NULL,
+             keggDisease = FALSE,
+             species = "Human",
+             db_terms = NULL,
+             speciesData = NULL) {
 
-    if(is.null(geneSetActivScore) & is.null(expressionMatrix)) stop("At least expressionMatrix or geneSetEigens must be given")
+        if (is.null(geneSetActivScore) &
+            is.null(exprMatrix))
+            stop("At least exprMatrix or geneSetEigens must be given")
 
-    if(is.null(db_terms)){
-        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), idGeneDF=idGeneDF,database=database,
-                             customAnnot=customAnnot,keggDisease=keggDisease,species=species,returnGenesSymbol = TRUE)
-    }
 
-    if(is.null(geneSetActivScore)){
-        geneSetActivScore<-computeActivationScore(expressionMatrix=expressionMatrix,db_terms=db_terms)
-    }
+        if (is.null(geneSetActivScore)) {
+            if (is.null(db_terms)) {
+                db_terms <-
+                    getDBterms(
+                        geneSym = rownames(exprMatrix),
+                        idGeneDF = idGeneDF,
+                        database = database,
+                        customAnnot = customAnnot,
+                        keggDisease = keggDisease,
+                        species = species,
+                        returnGenesSymbol = TRUE
+                    )
+            }
+            geneSetActivScore <-
+                computeActivationScore(exprMatrix = exprMatrix, db_terms = db_terms)
 
-    res<-list()
-
-    for(db in names(db_terms)){
-        if(is.list(geneSetActivScore[[db]])){
-            activScorePerPathway<-geneSetActivScore[[db]]$eigen
-        }else{
-            activScorePerPathway<-geneSetActivScore[[db]]
         }
 
-        db_terms[[db]]<-db_terms[[db]][rownames(activScorePerPathway)]
-        res[[db]]<-dfres<-data.frame(term=names(db_terms[[db]]),oob::multiLinearModel(activScorePerPathway,colData,contrast = contrast),database=db,
-                                     size=sapply(db_terms[[db]],length),sd=apply(activScorePerPathway,1,sd),row.names = NULL)
+        if (!is.list(geneSetActivScore) |
+            (is.list(geneSetActivScore) &
+             setequal(
+                 c("activScoreMat", "contributionList"),
+                 names(geneSetActivScore)
+             ))) {
+            geneSetActivScore <- list("db" = geneSetActivScore)
+        }
+
+        res <- list()
+
+        for (db in names(db_terms)) {
+            if (is.list(geneSetActivScore[[db]])) {
+                activScorePerPathway <- geneSetActivScore[[db]]$activScoreMat
+            } else{
+                activScorePerPathway <- geneSetActivScore[[db]]
+            }
+
+            if (!setequal(rownames(colData),
+                          rownames(geneSetActivScore[[1]]$activScoreMat))) {
+                stop("colData and geneSetActivScore must have the same samples names, in same order")
+            }
+
+            db_terms[[db]] <-
+                db_terms[[db]][colnames(activScorePerPathway)]
+
+            res[[db]] <-
+                dfres <-
+                data.frame(
+                    term = names(db_terms[[db]]),
+                    multiLinearModel(t(activScorePerPathway), colData, contrast = contrast),
+                    database = db,
+                    size = sapply(db_terms[[db]], length),
+                    sd = apply(activScorePerPathway, 2, sd),
+                    row.names = NULL
+                )
+        }
+        do.call("rbind", res)
+
     }
-    do.call("rbind", res)
-
-}
 
 
+
+#' Test a linear model on each gene following an experimental design.
+#'
+#' @param exprData A matrix of numeric with rows as features (in the RNA-Seq context, log counts).
+#' @param colData A dataframe of feature (numeric or factor) with rows as samples. Must have the same number of samples than exprData
+#' @param contrast A vector of 3 character.
+#' 1. Name of the experimental variable that have to be used for differential activation. Must be a column name of `colData`.
+#' 2. Condition considered as the reference.
+#' 3. Condition considered as the target group.
+#'
+#' @return
+#' A dataframe with the following columns:
+#' - baseMean: mean
+#' - log2FoldChange: Log(Log Fold Change)  between the two tested groups.
+#' - pval: an enrichment p-value
+#' - padj: a BH-adjusted p-value
+#'
+#' @export
+#'
+#' @examples
+#' data("bulkLogCounts", package = "oob")
+#' data("sampleAnnot", package = "oob")
+#' res<-multiLinearModel(bulkLogCounts,colData = sampleAnnot,
+#'     contrast = c("culture_media","T2iLGO","KSR+FGF2"))
+multiLinearModel <-
+    function(exprData,
+             colData ,
+             contrast) {
+        samples <- colData[, contrast[1]] %in% contrast[2:3]
+        data <- exprData[, samples, drop = FALSE]
+        groups <-
+            droplevels(as.factor(colData[samples, contrast[1]]))
+        logicGroup <- rep(FALSE, length(groups))
+        logicGroup[groups == contrast[2]] <- TRUE
+        regTabList <- apply(data, 1, function(x) {
+            data.frame(data = x, group = logicGroup)
+        })
+        resList <- lapply(regTabList, function(regTab) {
+            summary(lm(data ~ group, data = regTab))$coefficients[2, c(1, 4)]
+        })
+        res <-
+            data.frame(do.call("rbind", resList))
+        colnames(res) <- c("log2FoldChange", "pval")
+        res <-
+            cbind(data.frame(baseMean = apply(exprData[, samples], 1, mean)), res)
+        res$padj <- p.adjust(res$pval, method = "BH")
+        return(res)
+    }

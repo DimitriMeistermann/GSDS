@@ -45,6 +45,6 @@ A list where each element is a database that contain a list of term with the ass
 Download database of term/pathway for enrichment analyses.
 }
 \examples{
-data("bulkLogCounts")
-enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","reactom"))
+data("bulkLogCounts", package="oob")
+enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","goBP"))
 }

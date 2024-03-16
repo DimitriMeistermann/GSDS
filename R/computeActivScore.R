@@ -1,8 +1,10 @@
 
+
 #' Compute the activation score of a gene set from 1st component of its PCA
 #'
 #' @param exprMatrix A matrix of numeric with rows as features (in the RNA-Seq context, log counts).
 #' @param genes A character vector. The gene set where the activation score has to be computed. Must be a subset of `exprMatrix` row names.
+#' @param transpose Logical. If TRUE, `exprMatrix` is transposed with `t()` before computing the PCA.
 #' @param scale  Logical. Divide features by their standard deviation.
 #' @param center Logical. Subtract features by their average.
 #' @param returnContribution Logical. Return list with activation score and contribution of genes to the activation score.
@@ -20,18 +22,22 @@
 activScorePCA <-
     function(exprMatrix,
              genes,
+             transpose = TRUE,
              scale = FALSE,
              center = TRUE,
              returnContribution = FALSE) {
-        if(sum(!genes %in% rownames(exprMatrix))>0) stop("genes should be a subset of exprMatrix row names")
+        if (sum(!genes %in% rownames(exprMatrix)) > 0)
+            stop("genes should be a subset of exprMatrix row names")
+        if (!transpose)
+            exprMatrix <- t(exprMatrix)
         pca <-
-            oob::fastPCA(exprMatrix[genes, ],
+            fastPCA(exprMatrix[genes,],
                     center = center,
                     scale = scale,
                     nPC = 1)
         activScore <- pca$x[, 1]
         contribution <- pca$rotation[, 1]
-        if (cor(colMeans(exprMatrix[genes, ]), activScore) < 0) {
+        if (cor(colMeans(exprMatrix[genes,]), activScore) < 0) {
             activScore <- -activScore
             contribution <- -contribution
         }
@@ -47,8 +53,10 @@ activScorePCA <-
 #'
 #' @param exprMatrix A matrix of expression values, genes as rows and samples as columns.
 #' @param geneList A list of gene sets, each element is a vector of genes that exist in `exprMatrix` row names.
+#' @param transpose Logical. If TRUE, `exprMatrix` is transposed with `t()` before computing the PCA.
 #' @param scale Logical. Divide expression of gene by its standard deviation before doing the PCA.
 #' @param center Logical. Subtract mean to gene expression before doing the PCA.
+#' @param transpose Logical. If TRUE, `exprMatrix` is transposed with `t()` before computing the PCA.
 #'
 #' @return A list with two elements:
 #' - activScoreMat: A matrix of activation score, with gene sets as rows and samples as columns.
@@ -60,24 +68,49 @@ activScorePCA <-
 #' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
 #' geneSetActivScore<-activeScorePCAlist(bulkLogCounts,geneList = keggDB[[1]])
 
-activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE)
-{
-    res <- lapply(geneList, function(genesOfEl) activScorePCA(exprMatrix,
-                                                              genesOfEl, returnContribution = TRUE, scale = scale,
-                                                              center = center))
+activeScorePCAlist <-
+    function (exprMatrix,
+              geneList,
+              transpose = TRUE,
+              scale = FALSE,
+              center = TRUE)
+    {
+        if (!transpose)
+            exprMatrix <- t(exprMatrix)
+        res <-
+            lapply(geneList, function(genesOfEl)
+                activScorePCA(
+                    exprMatrix,
+                    genesOfEl,
+                    returnContribution = TRUE,
+                    scale = scale,
+                    center = center
+                ))
 
-    for(genesOfEl in geneList) activScorePCA(exprMatrix, genesOfEl, returnContribution = TRUE, scale = scale, center = center)
-    list(activScoreMat = sapply(res, function(x) x$activScore),
-         contributionList = lapply(res, function(x) x$contribution))
-}
+        for (genesOfEl in geneList)
+            activScorePCA(
+                exprMatrix,
+                genesOfEl,
+                returnContribution = TRUE,
+                scale = scale,
+                center = center
+            )
+        list(
+            activScoreMat = sapply(res, function(x)
+                x$activScore),
+            contributionList = lapply(res, function(x)
+                x$contribution)
+        )
+    }
 
 
 
 #' Compute the activation score of gene sets from an expression matrix.
 #'
-#' @description Perform a PCA for each gene set, from the matrix of [ genes from gene set × all samples ]. Return the first PCs as activations scores of the gene sets.
+#' @description Perform a PCA for each gene set, from the matrix of *genes from gene set × all samples*. Return the first PCs as activation scores of the gene sets.
 #'
-#' @param expressionMatrix An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If `db_terms` is not given, must be named by gene symbols.
+#' @param exprMatrix An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If `db_terms` is not given, must be named by gene symbols.
+#' @param transpose Logical. If TRUE, `exprMatrix` is transposed with `t()` before computing the PCA.
 #' @param idGeneDF Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL `species` and `speciesData` arguments wont be used.
 #' @param scaleScores Logical. Divide expression of gene by its standard deviation before doing the PCA.
 #' @param centerScores Logical. Subtract mean to gene expression before doing the PCA.
@@ -89,7 +122,6 @@ activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE
 #' @param species Character. Shortname of the species as described in `data("bods")`.
 #' @param db_terms A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.
 #' @param speciesData object returned by `getSpeciesData`. If not NULL `species` argument wont be used.
-#'
 #' @return A list where each element is a database of gene set given as input.
 #' For each database, contain a list of activation score, with gene sets as rows and samples as columns ;
 #' and the list of contribution (or weight) to activation score of each gene per gene set.
@@ -102,28 +134,53 @@ activeScorePCAlist<-function (exprMatrix, geneList, scale = FALSE, center = TRUE
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
 #' #same as
 #' geneSetActivScore<-computeActivationScore(bulkLogCounts,database = "kegg")
-computeActivationScore<-function(expressionMatrix,idGeneDF=NULL,scaleScores=FALSE,centerScores=TRUE,
-                                 database=c("kegg","reactom","goBP","goCC","goMF"),
-                                 maxSize=500,minSize=2,customAnnot=NULL,
-                                 keggDisease=FALSE,species="Human",db_terms=NULL,speciesData=NULL){
+computeActivationScore <-
+    function(exprMatrix,
+             transpose = TRUE,
+             idGeneDF = NULL,
+             scaleScores = FALSE,
+             centerScores = TRUE,
+             database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
+             maxSize = 500,
+             minSize = 2,
+             customAnnot = NULL,
+             keggDisease = FALSE,
+             species = "Human",
+             db_terms = NULL,
+             speciesData = NULL) {
+        if ( !is.data.frame(exprMatrix) & !is.matrix(exprMatrix))
+            stop("exprMatrix should be a matrix or a dataframe")
+        if(!transpose)
+            exprMatrix<-t(exprMatrix)
+        if (! is.character(rownames(exprMatrix)))
+            stop("rows of expression matrix should be named with genes symbol")
+        if (is.null(db_terms)) {
+            db_terms <-
+                getDBterms(
+                    geneSym = rownames(exprMatrix),
+                    idGeneDF = idGeneDF,
+                    database = database,
+                    customAnnot = customAnnot,
+                    keggDisease = keggDisease,
+                    species = species,
+                    returnGenesSymbol = TRUE
+                )
+        }
 
-    if(!class(expressionMatrix)[1]%in%c("data.frame","matrix")) stop("expressionMatrix should be a matrix or a dataframe")
-    if(class(rownames(expressionMatrix))!="character") stop("rows of expression matrix should be named with genes symbol")
-    if(is.null(db_terms)){
-        db_terms<-getDBterms(geneSym=rownames(expressionMatrix), idGeneDF=idGeneDF,database=database,
-                             customAnnot=customAnnot,keggDisease=keggDisease,species=species,returnGenesSymbol = TRUE)
+        if (length(db_terms) == 0)
+            stop("Error, no term in any database was found")
+
+        lapply(db_terms, function(database) {
+            database <-
+                lapply(database, function(genesOfTerm)
+                    intersect(genesOfTerm, rownames(exprMatrix)))
+            nGenePerTerm <- sapply(database, length)
+            database <-
+                database[nGenePerTerm > minSize & nGenePerTerm < maxSize]
+
+            return(activeScorePCAlist(exprMatrix, database, scale = scaleScores))
+        })
     }
-
-    if(length(db_terms)==0) stop("Error, no term in any database was found")
-
-    lapply(db_terms,function(database){
-        database<-lapply(database,function(genesOfTerm) intersect(genesOfTerm,rownames(expressionMatrix)))
-        nGenePerTerm<-sapply(database,length)
-        database<-database[nGenePerTerm>minSize & nGenePerTerm<maxSize]
-
-        return(activeScorePCAlist(expressionMatrix, database, scale = scaleScores))
-    })
-}
 
 
 
@@ -139,15 +196,19 @@ computeActivationScore<-function(expressionMatrix,idGeneDF=NULL,scaleScores=FALS
 #'
 #' @examples
 #' data("DEgenesPrime_Naive", package = "oob")
-#' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
-fcsScoreDEgenes<-function(genes,pvalues,logFoldChanges,logPval=FALSE){
-    if( sum(length(genes) == c(length(pvalues),length(logFoldChanges))) <2) stop("genes, pvalues and logPval should have the same length")
-    if(logPval){
-        pvalScore<- -log10(pvalues)
-    }else{
-        pvalScore <- 1-pvalues
+#' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
+#'     DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
+fcsScoreDEgenes <-
+    function(genes, pvalues, logFoldChanges, logPval = FALSE) {
+        if (sum(length(genes) == c(length(pvalues), length(logFoldChanges))) <
+            2)
+            stop("genes, pvalues and logPval should have the same length")
+        if (logPval) {
+            pvalScore <- -log10(pvalues)
+        } else{
+            pvalScore <- 1 - pvalues
+        }
+        pvalScore[logFoldChanges < 0] <- -pvalScore[logFoldChanges < 0]
+        names(pvalScore) <- genes
+        pvalScore
     }
-    pvalScore[logFoldChanges<0]<- -pvalScore[logFoldChanges<0]
-    names(pvalScore)<-genes
-    pvalScore
-}

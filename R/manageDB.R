@@ -2,36 +2,52 @@
 #' Return gene id correspondence, GO species code and KEGG species code
 #'
 #' @param sample.species Character. Shortname of the species as described in `data("bods")`.
-#' @param updateSpeciesPackage Logical. Download or update automatically the annotation org.db package corresponding to the species.
 #'
 #' @return A list describing specific data for the species (gene IDs, annotation package...).
 #' @export
 #'
 #' @examples
-#' library(gage)
-#' data(bods)
-#' bods
-#' getSpeciesData("Human")
-#' getSpeciesData("Mouse")
-getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
-    data("bods",package = "gage")
-    species<-list()
-    species.data<-data.frame(bods)
-    species.index<-which(species.data$species==sample.species)
-    if(length(species.index)!=1) stop("Wrong species name, type \ndata(bods)\nbods[,\"species\"]\nto see available species")
-    species$package<-as.character(species.data[species.index,"package"])
-    species$kegg<-as.character(species.data[species.index,"kegg.code"])
-    species$go<-strsplit(as.character(species$package),split = ".",fixed = TRUE)[[1]][2]
-    if(updateSpeciesPackage | !(require(species$package,character.only = TRUE))){
-        print(paste0("Downloading species package: ",species.data$package))
-        BiocManager::install(species$package, update=FALSE)
+#' require(BiocManager)
+#' require(org.Hs.eg.db)
+#'
+#' getSpeciesData("Human") |> str()
+#'
+#' #Available species
+#' data("bods", package = "gage")
+#' bods[,"species"]
+getSpeciesData <-
+    function(sample.species = "Human") {
+        bods <- ""
+        data("bods", package = "gage", envir = environment())
+        species <- list()
+        species.data <- data.frame(bods)
+        species.index <- which(species.data$species == sample.species)
+        if (length(species.index) != 1)
+            stop(
+                "Wrong species name, type \ndata(bods, package = 'gage')\nbods[,\"species\"]\nto see available species"
+            )
+        species$package <-
+            as.character(species.data[species.index, "package"])
+        species$kegg <-
+            as.character(species.data[species.index, "kegg.code"])
+        species$go <-
+            strsplit(as.character(species$package),
+                     split = ".",
+                     fixed = TRUE)[[1]][2]
+        if (!(requireNamespace(species$package, quietly = TRUE))) {
+            stop(paste0("Error, please download the following annotation package, then retry: ",
+                        species$package ))
+        }
+        getOfSpeciesPackage<-AnnotationDbi::get(species$package,envir=getNamespace(species$package))
+        species$GeneIdTable <-
+            AnnotationDbi::select(
+                getOfSpeciesPackage,
+                keys = AnnotationDbi::keys(getOfSpeciesPackage, "ENTREZID") ,
+                columns = c("ENTREZID", "SYMBOL", "ENSEMBL")
+            ) |> suppressMessages()
+        species$species <- sample.species
+        return(species)
     }
-    require(species$package,character.only = TRUE)
-    species$GeneIdTable<-AnnotationDbi::select(get(species$package),keys = AnnotationDbi::keys(get(species$package),"ENTREZID") , columns = c("ENTREZID","SYMBOL","ENSEMBL")) |> suppressMessages()
-    species$species<-sample.species
-    return(species)
-}
-
 
 
 
@@ -53,8 +69,8 @@ getSpeciesData<-function(sample.species="Human",updateSpeciesPackage=FALSE){
 #' @export
 #' @import AnnotationDbi
 #' @examples
-#' data("bulkLogCounts")
-#' enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","reactom"))
+#' data("bulkLogCounts", package="oob")
+#' enrichDBs<-getDBterms(rownames(bulkLogCounts),species="Human",database=c("kegg","goBP"))
 getDBterms<-function(geneSym = NULL,geneEntrez=NULL, idGeneDF=NULL, speciesData=NULL,database=c("kegg","reactom","goBP","goCC","goMF"),customAnnot=NULL,
                      keggDisease=FALSE,species="Human",returnGenesSymbol=TRUE, filter_genes = TRUE){
     select<-AnnotationDbi::select
@@ -82,6 +98,9 @@ getDBterms<-function(geneSym = NULL,geneEntrez=NULL, idGeneDF=NULL, speciesData=
     }
     if(!(length(database)<=1 & database[1]=="custom")){
         if("reactom"%in%database){
+            if (!(requireNamespace("reactome.db", quietly = TRUE))) {
+                stop("Error, please download 'reactome.db' package, then retry")
+            }
             db_terms$reactom<- fgsea::reactomePathways(geneEntrez)
             db_terms$reactom<-db_terms$reactom[unique(names(db_terms$reactom))]
         }
@@ -108,4 +127,52 @@ getDBterms<-function(geneSym = NULL,geneEntrez=NULL, idGeneDF=NULL, speciesData=
         db_terms
     }
 }
+
+
+
+
+#' Export enrichment results with the gene list associated to each term/row.
+#'
+#' @param enrichResults Dataframe, usually from Enrich functions (for example `enrich.ora`) with `returnGenes=TRUE`.
+#' @param file Path to file to write.
+#' @param sep Field separator.
+#' @param col.names Either a logical value indicating whether the column names of x are to be written along with x, or a character vector of column names to be written. See the section on ‘CSV files’ for the meaning of col.names = NA.
+#' @param row.names Either a logical value indicating whether the row names of x are to be written along with x, or a character vector of row names to be written.
+#' @param geneCol The column that contain the list of gene of the term.
+#' @param ... Other parameters passed to write.table.
+#'
+#' @return Write a text file.
+#' @export
+#'
+exportEnrich <-
+    function(enrichResults,
+             file,
+             sep = "\t",
+             col.names = TRUE,
+             row.names = FALSE,
+             geneCol = "genes",
+             ...) {
+        genesPerRow <- enrichResults[, geneCol]
+        if (!is.list(genesPerRow))
+            stop(geneCol, " must be a list")
+        if (!all(vapply(genesPerRow, is.character, FUN.VALUE = logical(1))))
+            stop(geneCol, " must be a list of character vectors")
+
+
+        enrichResults[, geneCol] <- NULL
+
+        enrichResults[,geneCol] <-
+            vapply(genesPerRow, FUN.VALUE = character(1), function(x) {
+                return(paste0(x, collapse = sep))
+            })
+
+        oob::fastWrite(
+            enrichResults,
+            file,
+            sep = sep,
+            col.names = col.names,
+            row.names = row.names,
+            ...
+        )
+    }
 

@@ -27,22 +27,45 @@ A HeatmapAnnotation object. Genes on the left side of the vertical line are cont
 Displaying most neg and pos gene contribution on a GSDS heatmap.
 }
 \examples{
+library(oob, quietly = TRUE)
+
 data("bulkLogCounts", package = "oob")
 data("sampleAnnot", package = "oob")
 
-library(ComplexHeatmap)
+keggDB <- getDBterms(rownames(bulkLogCounts), database = "kegg")
+geneSetActivScore <-
+    computeActivationScore(bulkLogCounts, db_terms = keggDB)
+resGSDS <-
+    GSDS(
+        geneSetActivScore = geneSetActivScore,
+        colData = sampleAnnot,
+        contrast = c("culture_media", "T2iLGO", "KSR+FGF2"),
+        db_terms =  keggDB
+    )
+bestPathayIndex <- whichTop(resGSDS$padj, top = 30, decreasing = FALSE)
+selectedActivScores <- t(geneSetActivScore$kegg$activScoreMat[, bestPathayIndex])
+selectedContributions <- geneSetActivScore$kegg$contribution[bestPathayIndex]
 
-keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
-bestPathay<-whichTop(resGSDS$padj,top = 30,decreasing = FALSE)
 
-heatmap.DM(geneSetActivScore$kegg$eigen[bestPathay,],midColorIs0 = TRUE,center=FALSE,
-	name = "Activation score",preSet = NULL,colData = sampleAnnot["culture_media"],
-	right_annotation=rowAnnotation("gene contribution" =
-		GSDS.HeatmapAnnot(contributions = geneSetActivScore$kegg$contribution[bestPathay],width = unit(12,"cm"),fontsizeFactor = 300)
-	),
-	row_names_side ="left",row_dend_side ="left",
-	row_names_max_width = unit(8, "inches"),autoFontSizeRow=FALSE,row_names_gp=gpar(fontsize=1/length(bestPathay)*300)
+heatmap.DM(
+    selectedActivScores,
+    midColorIs0 = TRUE,
+    center = FALSE,
+    name = "Activation score",
+    preSet = NULL,
+    colData = sampleAnnot["culture_media"],
+    right_annotation = rowAnnotation(
+        "gene contribution" =
+            GSDS.HeatmapAnnot(
+                contributions = selectedContributions,
+                width = unit(12, "cm"),
+                fontsizeFactor = 300
+            )
+    ),
+    row_names_side = "left",
+    row_dend_side = "left",
+    row_names_max_width = unit(8, "inches"),
+    autoFontSizeRow = FALSE,
+    row_names_gp = gpar(fontsize = 1 / length(bestPathayIndex) * 300)
 )
 }

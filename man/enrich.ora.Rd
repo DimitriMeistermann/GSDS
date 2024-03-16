@@ -61,8 +61,8 @@ A dataframe with the following columns:
 Over Representation Analysis (enrichment, Fischer tests)
 }
 \examples{
-data("DEgenesPrime_Naive")
+data("DEgenesPrime_Naive" ,package = "oob")
 vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
 resEnrich<-enrich.ora(vectorIsDE,database = "kegg",species = "Human")
-View(resEnrich)
+head(resEnrich)
 }
