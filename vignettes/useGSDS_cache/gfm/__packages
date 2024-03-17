@@ -1,0 +1,12 @@
+BiocGenerics
+Biobase
+S4Vectors
+IRanges
+AnnotationDbi
+org.Hs.eg.db
+ggplot2
+ComplexHeatmap
+oob
+GSDS
+rmarkdown
+ggrepel

@@ -1,0 +1,143 @@
+---
+title: "GSDS for functional enrichment analyses"
+author: "Dimitri Meistermann"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{useGSDS}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.dim = c(7,7),
+  fig.align = "center",
+  cache = TRUE,
+  warning=FALSE
+)
+```
+
+
+GSDS (Gene Set Differential Scoring) is focused on functional enrichment.
+The package has 3 purposes:
+- provide functions to manage gene set databases
+- implement well known methods to perform functional enrichment: over-representation analysis (ORA) and gene set enrichment analysis (GSEA)
+- provide a new method to perform functional enrichment based on differential scoring (GSDS)
+
+The GSDS method computes an activation score for each gene set in each sample using a PCA (similar to Pathway Level analysis of Gene Expression or PLAGE). This gene score is used  to identify gene sets that are differentially activated between two conditions.
+
+
+## Installation
+
+In a R console: 
+
+```
+install.packages("devtools")
+
+#see oob github page if you encounter problems with installation
+devtools::install_github("https://github.com/DimitriMeistermann/oob", build_vignettes = FALSE)
+devtools::install_github("https://github.com/DimitriMeistermann/GSDS", build_vignettes = FALSE)
+```
+For a manual installation of dependencies:
+
+```
+install.packages("BiocManager")
+    BiocManager::install(c("AnnotationDbi", "fgsea", "gage", "ComplexHeatmap")
+```
+
+The package is ready to load.
+  
+```{r setup}
+  library(GSDS)
+```
+
+
+## Over representation analysis (ORA)
+
+For any functional enrichment method, we have to first download several gene set databases by using `getDBterms`. We will use here *kegg* and the *Gene Ontology* (biological process).
+Note that you can use your own database of gene sets.
+
+```{r}
+library(oob) #provide functions to ease the use of R
+data("DEgenesPrime_Naive")
+#species specific package will be load/asked for installation
+geneSetDB<-getDBterms(geneSym = rownames(DEgenesPrime_Naive), species = "Human", database = c("kegg","goBP"))
+geneSetDB$kegg[1:2]
+
+```
+
+Then we can make a simple over representation analysis.
+
+```{r}
+vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
+resEnrich<-enrich.ora(vectorIsDE,db_terms = geneSetDB)
+head(resEnrich[whichTop(resEnrich$pval,decreasing = FALSE),])
+
+```
+
+# functional class scoring (FCS)
+
+The Functional class scoring family of functional enrichment is here implemented by a wrapper of `fGSEA`.
+For any FCS method, we have to build first a score at the gene level.
+I propose here a score for Differentially Expressed genes based on inverse of p-value with the sign of the Log2(Fold-change): $(1-p) \times \frac{Log_2FC}{|Log_2FC|} $
+
+```{r}
+fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
+resEnrich<-enrich.fcs(fcsScore,db_terms = geneSetDB,returnGenes = TRUE) #return genes of the gene set in the dataframe
+head(resEnrich[whichTop(resEnrich$pval,decreasing = FALSE),])
+
+# The result can be visualized as a volcano plot
+library(ggrepel)
+
+ggplot(resEnrich,aes(x=NES,y=-log10(padj),color=padj<0.05))+
+    geom_point()+theme_bw()+scale_color_manual(values=c("grey75","black"))+
+    geom_text_repel(data = resEnrich[whichTop(resEnrich$pval,top = 15,decreasing = FALSE),],
+    aes(x=NES,y=-log10(padj),label=pathway), inherit.aes = FALSE,color="grey50")
+```
+
+We can export enrichment with the genes of each gene set in a tsv file.
+
+```
+exportEnrich(resEnrich,"test/resEnrich.tsv")
+```
+
+## Gene Set Differential Activation (GSDS) 
+
+We can also perform an enrichment based on gene set differential activation with *GSDS*.
+
+GSDS was developed independently from [GSVA](https://bioconductor.org/packages/release/bioc/html/GSVA.html) but is has the exact same idea of working on a matrix of gene set scores.
+As *GSVA*, the first step is to translate the expression matrix in an activation score matrix where each colum is a gene set and each row is a sample.
+
+The particularity of *GSDS* is to perform this step by taking the first Principal Componant of the matrix $genesOfGeneSet \times samples$ from a Principal Componant Analysis (PCA).
+One PCA is done per gene set and the obtained values are the activation score for this particular gene set. Hence, one PCA is performed for each gene set.
+
+The activation score matrix is then used to perform differential analysis with a linear model between two conditions.
+
+
+```{r}
+data("bulkLogCounts")
+data("sampleAnnot")
+geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = geneSetDB["kegg"])
+resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms = geneSetDB["kegg"])
+bestPathay<-whichTop(resGSDS$padj,top = 30,decreasing = FALSE)
+bestPathayActivScore <- geneSetActivScore$kegg$activScoreMat[,bestPathay]
+colnames(bestPathayActivScore)
+```
+
+We can visualize the result as a heatmap with the contribution of each gene to the score.
+
+```{r out.width = "100%", fig.dim = c(14,10)}
+
+heatmap.DM( t(bestPathayActivScore) ,midColorIs0 = TRUE,center=FALSE,
+	name = "Activation score",preSet = NULL,colData = sampleAnnot["culture_media"],
+	right_annotation=rowAnnotation("gene contribution" =
+		GSDS.HeatmapAnnot(contributions = geneSetActivScore$kegg$contribution[bestPathay],width = unit(12,"cm"),fontsizeFactor = 300)
+	),
+	row_names_side ="left",row_dend_side ="left",
+	row_names_max_width = unit(8, "inches"),autoFontSizeRow=FALSE,row_names_gp=gpar(fontsize=1/length(bestPathay)*300)
+)
+```
