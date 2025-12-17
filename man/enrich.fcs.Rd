@@ -30,8 +30,6 @@ enrich.fcs(
 
 \item{minSize}{Minimum number of gene in each term}
 
-\item{customAnnot}{custom annotation database, as a list of terms, each element contain a vector of gene symbols.}
-
 \item{returnGenes}{return genes that were the most important for the enrichment of term}
 
 \item{keggDisease}{Logical. Retain kegg disease term ?}
@@ -48,13 +46,14 @@ If this argument is not NULL, no additional database are downloaded.}
 \value{
 A data frame with the following columns:
 \itemize{
-\item pathway: name of the pathway/term
+\item term: name of the term/gene set
+\item database: origin of the gene set
+\item size: number of gene in the term after removing genes not present.
 \item pval: an enrichment p-value
 \item padj: a BH-adjusted p-value
 \item log2err: the expected error for the standard deviation of the P-value logarithm
 \item ES: enrichment score, same as in Broad GSEA implementation
 \item NES: enrichment score normalized to mean enrichment of random samples of the same size
-\item size: number of gene in the term after removing genes not present
 \item genes (if \code{returnGenes}). Vector of genes of the term.
 }
 }

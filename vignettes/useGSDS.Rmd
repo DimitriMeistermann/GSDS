@@ -61,7 +61,7 @@ The package is ready to load.
 For any functional enrichment method, we have to first download several gene set databases by using `getDBterms`. We will use here *kegg* and the *Gene Ontology* (biological process).
 Note that you can use your own database of gene sets.
 
-```{r}
+```{r getDBterms}
 library(oob) #provide functions to ease the use of R
 data("DEgenesPrime_Naive")
 #species specific package will be load/asked for installation
@@ -72,7 +72,7 @@ geneSetDB$kegg[1:2]
 
 Then we can make a simple over representation analysis.
 
-```{r}
+```{r ORA}
 vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
 resEnrich<-enrich.ora(vectorIsDE,db_terms = geneSetDB)
 head(resEnrich[whichTop(resEnrich$pval,decreasing = FALSE),])
@@ -85,7 +85,7 @@ The Functional class scoring family of functional enrichment is here implemented
 For any FCS method, we have to build first a score at the gene level.
 I propose here a score for Differentially Expressed genes based on inverse of p-value with the sign of the Log2(Fold-change): $(1-p) \times \frac{Log_2FC}{|Log_2FC|} $
 
-```{r}
+```{r FCS}
 fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 resEnrich<-enrich.fcs(fcsScore,db_terms = geneSetDB,returnGenes = TRUE) #return genes of the gene set in the dataframe
 head(resEnrich[whichTop(resEnrich$pval,decreasing = FALSE),])
@@ -96,7 +96,7 @@ library(ggrepel)
 ggplot(resEnrich,aes(x=NES,y=-log10(padj),color=padj<0.05))+
     geom_point()+theme_bw()+scale_color_manual(values=c("grey75","black"))+
     geom_text_repel(data = resEnrich[whichTop(resEnrich$pval,top = 15,decreasing = FALSE),],
-    aes(x=NES,y=-log10(padj),label=pathway), inherit.aes = FALSE,color="grey50")
+    aes(x=NES,y=-log10(padj),label=term), inherit.aes = FALSE,color="grey50")
 ```
 
 We can export enrichment with the genes of each gene set in a tsv file.
@@ -118,7 +118,7 @@ One PCA is done per gene set and the obtained values are the activation score fo
 The activation score matrix is then used to perform differential analysis with a linear model between two conditions.
 
 
-```{r}
+```{r GSDS}
 data("bulkLogCounts")
 data("sampleAnnot")
 geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = geneSetDB["kegg"])
@@ -130,7 +130,7 @@ colnames(bestPathayActivScore)
 
 We can visualize the result as a heatmap with the contribution of each gene to the score.
 
-```{r out.width = "100%", fig.dim = c(14,10)}
+```{r heatmapGSDS, out.width = "100%", fig.dim = c(14,10)}
 
 heatmap.DM( t(bestPathayActivScore) ,midColorIs0 = TRUE,center=FALSE,
 	name = "Activation score",preSet = NULL,colData = sampleAnnot["culture_media"],
@@ -141,3 +141,38 @@ heatmap.DM( t(bestPathayActivScore) ,midColorIs0 = TRUE,center=FALSE,
 	row_names_max_width = unit(8, "inches"),autoFontSizeRow=FALSE,row_names_gp=gpar(fontsize=1/length(bestPathay)*300)
 )
 ```
+
+## New! Compute gene modules!
+Here the gene modules (gene coexpression clusters) are computed with a Leiden clustering, by default, from a correlation distance matrix.
+The activation scores are then computed for each module for a quick visualization.
+
+A good practice is to rename module names by an important leading gene in each module. 
+Here we rename the modules using the JASPAR transcription factor (TF) database.
+The best TF of each module in term of PC1 contribution will be used to rename the module 
+
+```{r geneModules, fig.dim = c(10,7)}
+humanTFs <- dl_JAFAR_geneSyms() 
+
+geneModules <- computegenemodules(bulkLogCounts, TF_list = humanTFs)
+
+heatmap.DM(t(geneModules$activation_score), preSet = NULL, column_split = sampleAnnot["culture_media"], column_title_rot = 45)
+
+```
+We can also make a more detailed heatmap with the top genes in term of contributions for each heatmap
+
+```{r htDetailedModules, fig.dim = c(11,11)}
+topGenes <- lapply(geneModules$module_genes, function(moduleGenes) {
+	contribsOfMod <-  geneModules$gene_annot[moduleGenes, "Contribution"]
+	names(contribsOfMod) <- moduleGenes
+	names(contribsOfMod)[order(contribsOfMod, decreasing = TRUE)][seq_len(5)]
+}) |> oob::VectorListToFactor()
+
+heatmap.DM(
+	bulkLogCounts[names(topGenes), ],
+	column_split = sampleAnnot["culture_media"],
+	column_title_rot = 45,
+	row_split = topGenes, row_title_rot = 0
+)
+
+```
+

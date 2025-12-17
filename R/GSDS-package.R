@@ -7,13 +7,13 @@
 #' @importFrom AnnotationDbi select
 #' @importFrom fgsea fgseaMultilevel
 #' @importFrom fgsea reactomePathways
-#' @importFrom gage go.gsets
-#' @importFrom gage kegg.gsets
+#' @importFrom gage go.gsets kegg.gsets
 #' @importFrom oob ConvertKey
-#' @importFrom oob fastPCA
-#' @importFrom oob enrichSetIntersection
+#' @importFrom oob fastPCA leidenFromUMAP enrichSetIntersection UMAP
 #' @importFrom stats cor lm p.adjust sd
+#' @importFrom RSQLite dbConnect SQLite dbGetQuery
 #' @importFrom utils data
+
 ## usethis namespace: end
 NULL
 

@@ -6,7 +6,7 @@
 \usage{
 GSDS(
   geneSetActivScore = NULL,
-  exprMatrix = NULL,
+  data = NULL,
   colData,
   contrast,
   idGeneDF = NULL,
@@ -17,16 +17,17 @@ GSDS(
   keggDisease = FALSE,
   species = "Human",
   db_terms = NULL,
-  speciesData = NULL
+  speciesData = NULL,
+  sce_assay = "logcounts"
 )
 }
 \arguments{
 \item{geneSetActivScore}{A list of database with an element "eigen" containing the matrix of gene set activation score (see what \code{computeActivationScore} returns).
-If NULL, this is computed automatically from the \code{exprMatrix} and the gene set database given via \code{db_terms} or requested via \code{database}.}
+If NULL, this is computed automatically from the \code{data} and the gene set database given via \code{db_terms} or requested via \code{database}.}
 
-\item{exprMatrix}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols.}
+\item{data}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols. Can also be a SingleCellExperiment object.}
 
-\item{colData}{An annotation dataframe. Each column is a feature, each row a sample. Same number of samples than in \code{exprMatrix}.}
+\item{colData}{An annotation dataframe. Each column is a feature, each row a sample. Same number of samples than in \code{data}.}
 
 \item{contrast}{A vector of 3 character.
 \enumerate{
@@ -52,18 +53,22 @@ If NULL, this is computed automatically from the \code{exprMatrix} and the gene 
 \item{db_terms}{A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.}
 
 \item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
+
+\item{sce_assay}{Integer
+or character, if \code{data} is a \code{SingleCellExperiment} object, the assay name
+to use.}
 }
 \value{
 A dataframe with the following columns:
 \itemize{
 \item term: name of the term/gene set
+\item database: origin of the gene set
+\item size: number of gene in the term after removing genes not present.
 \item baseMean: mean of activation score in the gene set
 \item sd: standard deviation  in the gene set
 \item log2FoldChange: Log(Log Fold Change) of activation score between the two tested groups.
 \item pval: an enrichment p-value
 \item padj: a BH-adjusted p-value
-\item database: origin of the gene set
-\item size: number of gene in the term after removing genes not present.
 }
 }
 \description{
@@ -79,7 +84,7 @@ resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,
     contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
 
 # or
-resGSDS<-GSDS(exprMatrix = bulkLogCounts,colData = sampleAnnot,
+resGSDS<-GSDS(data = bulkLogCounts,colData = sampleAnnot,
     contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
 
 head(resGSDS)

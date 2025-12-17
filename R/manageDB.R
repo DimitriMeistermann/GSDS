@@ -133,17 +133,22 @@ getDBterms<-function(geneSym = NULL,geneEntrez=NULL, idGeneDF=NULL, speciesData=
 
 #' Export enrichment results with the gene list associated to each term/row.
 #'
-#' @param enrichResults Dataframe, usually from Enrich functions (for example `enrich.ora`) with `returnGenes=TRUE`.
+#' @param enrichResults Dataframe, usually from Enrich functions (for example
+#'   `enrich.ora`) with `returnGenes=TRUE`.
 #' @param file Path to file to write.
 #' @param sep Field separator.
-#' @param col.names Either a logical value indicating whether the column names of x are to be written along with x, or a character vector of column names to be written. See the section on ‘CSV files’ for the meaning of col.names = NA.
-#' @param row.names Either a logical value indicating whether the row names of x are to be written along with x, or a character vector of row names to be written.
+#' @param col.names Either a logical value indicating whether the column names
+#'   of x are to be written along with x, or a character vector of column names
+#'   to be written. See the section on ‘CSV files’ for the meaning of col.names
+#'   = NA.
+#' @param row.names Either a logical value indicating whether the row names of x
+#'   are to be written along with x, or a character vector of row names to be
+#'   written.
 #' @param geneCol The column that contain the list of gene of the term.
 #' @param ... Other parameters passed to write.table.
 #'
 #' @return Write a text file.
 #' @export
-#'
 exportEnrich <-
     function(enrichResults,
              file,
@@ -175,4 +180,37 @@ exportEnrich <-
             ...
         )
     }
+
+#' Download GO term for a particular Ensembl dataset
+#'
+#' @param ensemblDataset name (species) of the Ensembl dataset
+#' @param returnGeneSymbol Return gene symbol if `TRUE` or Ensembl IDs
+#'
+#' @returns A list where each element is a database that contain a list of term with the associated gene symbols.
+#' @export
+#'
+#' @examples
+#' dbGO_Mzebra <- downloadGODB_BioMart("mzebra_gene_ensembl")
+downloadGODB_BioMart <- function(ensemblDataset="mzebra_gene_ensembl", returnGeneSymbol = FALSE) {
+	ensembl <- biomaRt::useMart("ensembl", dataset = ensemblDataset) # Replace "mzebra_gene_ensembl" if the dataset name is different.
+	idcol <- ifelse(returnGeneSymbol, "external_gene_name","ensembl_gene_id")
+	go_data <- biomaRt::getBM(
+		attributes = c(idcol, "go_id", "name_1006", "namespace_1003"), #, "description", ""ensembl_gene_id"),
+		mart = ensembl
+	)
+	go_data <- go_data[go_data[,idcol] != "" & go_data$go_id != "",]
+	go_data$go_term <- paste(go_data$go_id,go_data$name_1006,sep = " ")
+
+	db <- list(
+		"goCC" = go_data[go_data$namespace_1003 == "cellular_component",c(idcol,"go_term")],
+		"goMF" = go_data[go_data$namespace_1003 == "molecular_function",c(idcol,"go_term")],
+		"goBP" = go_data[go_data$namespace_1003 == "biological_process",c(idcol,"go_term")]
+	)
+	lapply(db, function(x) {
+		return(oob::factorToVectorList(x$go_term, factorNames = x[,idcol]))
+	})
+}
+
+
+
 

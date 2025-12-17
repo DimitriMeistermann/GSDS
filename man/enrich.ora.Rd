@@ -2,7 +2,7 @@
 % Please edit documentation in R/computeEnrichment.R
 \name{enrich.ora}
 \alias{enrich.ora}
-\title{Over Representation Analysis (enrichment, Fischer tests)}
+\title{Over Representation Analysis from Hypergeometric test}
 \usage{
 enrich.ora(
   x,
@@ -13,7 +13,6 @@ enrich.ora(
   returnGenes = FALSE,
   keggDisease = FALSE,
   species = "Human",
-  customAnnot = NULL,
   db_terms = NULL,
   speciesData = NULL
 )
@@ -39,26 +38,28 @@ In this case, GATA2, SOX17, KLF4, POU5F1 are the universe of gene and GATA2 and 
 
 \item{species}{Character. Shortname of the species as described in \code{data("bods")}.}
 
-\item{customAnnot}{Custom annotation database, as a list of terms, each element contain a vector of gene symbols.}
-
 \item{db_terms}{A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.}
 
 \item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
+
+\item{customAnnot}{Custom annotation database, as a list of terms, each element contain a vector of gene symbols.}
 }
 \value{
 A dataframe with the following columns:
 \itemize{
-\item term: name of the term
-\item pval: an enrichment p-value
-\item OD: Odds Ratio of the enrichment
+\item term: name of the term/gene set
+\item database: origin of the gene set
+\item size: number of gene in the term after removing genes not present.
+\item obsOverlap: number of gene in common between set of interest and term
+\item expOverlap: expected number of gene in common between set of interest and term
+\item OEdeviation: $\frac{obs-exp}{\sqrt{Universe}}$, normalized deviation from expected value
+\item pval: p-value based on a Hypergeometric test
 \item padj: a BH-adjusted p-value
-\item nGeneOfInterest: number of gene of interest in the term.
-\item nGene: number of gene in the term after removing genes not present.
 \item genes (if \code{returnGenes}). Vector of genes of the term.
 }
 }
 \description{
-Over Representation Analysis (enrichment, Fischer tests)
+Over Representation Analysis from Hypergeometric test
 }
 \examples{
 data("DEgenesPrime_Naive" ,package = "oob")
