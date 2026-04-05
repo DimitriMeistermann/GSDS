@@ -3,7 +3,7 @@
 #' Compute the activation score of a gene set from 1st component of its PCA
 #'
 #' @param data A matrix of numeric with rows as features (in the RNA-Seq
-#'   context, log counts). Can also be a SingleCellExperiment object.
+#'   context, log counts). Can also be a SummarizedExperiment object.
 #' @param genes A character vector. The gene set where the activation score has
 #'   to be computed. Must be a subset of `data` row names.
 #' @param transpose Logical. If TRUE, `data` is transposed with `t()` before
@@ -12,16 +12,16 @@
 #' @param center Logical. Subtract features by their average.
 #' @param returnContribution Logical. Return list with activation score and
 #'   contribution of genes to the activation score.
-#' @param sce_assay Integer
-#'   or character, if `data` is a `SingleCellExperiment` object, the assay name
+#' @param se_data_assay Integer
+#'   or character, if `data` is a `SummarizedExperiment` object, the assay name
 #'   to use.
 #' @return A vector of numeric corresponding to activation scores, named by genes. If `returnContribution` return a list with activation scores and contributions of genes.
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts", package = "oob")
-#' keggData<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-#' geneSet<-keggData$kegg$`hsa00190 Oxidative phosphorylation`
+#' data("bulkLogCounts")
+#' data("keggHuman")
+#' geneSet<-keggHuman$kegg$`hsa00190 Oxidative phosphorylation`
 #' geneSet<-intersect(geneSet,rownames(bulkLogCounts))
 #' activScorePC1(bulkLogCounts,genes = geneSet)
 #' activScorePC1(bulkLogCounts,genes = geneSet,returnContribution = TRUE)
@@ -31,18 +31,18 @@ activScorePC1 <- function (data,
 													 scale = FALSE,
 													 center = TRUE,
 													 returnContribution = FALSE,
-													 sce_assay = "logcounts")
+													 se_data_assay = "logcounts")
 {
-	if (inherits(data, "SingleCellExperiment")) {
+	if (inherits(data, "SummarizedExperiment")) {
 		sce_obj <- data
-		data <- assay(sce_obj, sce_assay)
+		data <- assay(sce_obj, se_data_assay)
 	}
 	if (transpose)
 		data <- t(data)
 	if (sum(!genes %in% colnames(data)) > 0)
 		stop("genes should be a subset of data row names")
 	pca <- fastPCA(
-		data[, genes],
+		data[, genes, drop = FALSE],
 		center = center,
 		scale = scale,
 		nPC = 1,
@@ -50,9 +50,9 @@ activScorePC1 <- function (data,
 	)
 	activScore <- pca$x[, 1]
 	contribution <- pca$rotation[, 1]
-	if (cor(rowMeans(data[, genes]), activScore) < 0) {
+	correlation_val <- cor(rowMeans(data[, genes, drop = FALSE]), activScore)
+	if (!is.na(correlation_val) && correlation_val < 0) {
 		activScore <- -activScore
-		contribution <- -contribution
 	}
 	if (returnContribution) {
 		list(activScore = activScore, contribution = contribution)
@@ -63,15 +63,15 @@ activScorePC1 <- function (data,
 }
 
 #' Compute activation score for a list of gene sets.
-#'
-#' @param data A matrix of expression values, genes as rows and samples as columns. Can also be a SingleCellExperiment object.
+#' @inheritParams computeActivationScore
+#' @param data A matrix of expression values, genes as rows and samples as columns. Can also be a SummarizedExperiment object.
 #' @param geneList A list of gene sets, each element is a vector of genes that exist in `data` row names.
 #' @param transpose Logical. If TRUE, `data` is transposed with `t()` before computing the PCA.
 #' @param scale Logical. Divide expression of gene by its standard deviation before doing the PCA.
 #' @param center Logical. Subtract mean to gene expression before doing the PCA.
 #' @param transpose Logical. If TRUE, `data` is transposed with `t()` before computing the PCA.
-#' @param sce_assay Integer
-#'   or character, if `data` is a `SingleCellExperiment` object, the assay name
+#' @param se_data_assay Integer
+#'   or character, if `data` is a `SummarizedExperiment` object, the assay name
 #'   to use.
 #' @return A list with two elements:
 #' - activScoreMat: A matrix of activation score, with gene sets as rows and samples as columns.
@@ -79,52 +79,60 @@ activScorePC1 <- function (data,
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts", package = "oob")
-#' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-#' geneSetActivScore<-activScorePC1list(bulkLogCounts,geneList = keggDB[[1]])
-activScorePC1list <-
-    function (data,
-              geneList,
-              transpose = TRUE,
-              scale = FALSE,
-              center = TRUE,
-    					sce_assay = "logcounts")
-    {
-	    	if (inherits(data, "SingleCellExperiment")) {
-	    		sce_obj <- data
-	    		data <- assay(sce_obj, sce_assay)
-	    	}
-        if (!transpose) data <- t(data)
-        sd_pos <- apply(data,2,sd) > 0
-				if(sum(!sd_pos) > 0) warning("Some features have sd = 0, they will be deleted from the analysis")
-        data <- data[,sd_pos]
-        res <-
-            lapply(geneList, function(genesOfEl)
-                activScorePC1(
-                    data,
-                    genesOfEl,
-                    returnContribution = TRUE,
-                    scale = scale,
-                    center = center
-                ))
+#' data("bulkLogCounts")
+#' data("keggHuman")
+#' geneList <-  keggHuman$kegg[seq.int(5)]
+#' geneList <- lapply(geneList, function(x) intersect(x,rownames(bulkLogCounts)))
+#' geneSetActivScore<-activScorePC1list(bulkLogCounts,geneList = geneList)
+activScorePC1list <- function(data,
+															geneList,
+															transpose = TRUE,
+															scale = FALSE,
+															center = TRUE,
+															se_data_assay = "logcounts",
+															BPPARAM = BiocParallel::SerialParam()) {
 
-        for (genesOfEl in geneList)
-            activScorePC1(
-                data,
-                genesOfEl,
-                returnContribution = TRUE,
-                scale = scale,
-                center = center
-            )
-        list(
-            activScoreMat = sapply(res, function(x)
-                x$activScore),
-            contributionList = lapply(res, function(x)
-                x$contribution)
-        )
-    }
+	# 1. Faster SCE Handling
+	if (inherits(data, "SummarizedExperiment")) {
+		data <- SummarizedExperiment::assay(data, se_data_assay)
+	}
 
+	# 2. Efficient Transposition
+	if (!transpose) data <- t(data)
+	if(is.data.frame(data)) data <- as.matrix(data)
+	# 3. High-performance Variance Filtering
+	# Using matrixStats or sparseMatrixStats is significantly faster than apply()
+	if (inherits(data, "dgCMatrix")) {
+		vars <- sparseMatrixStats::colVars(data)
+	} else {
+		vars <- matrixStats::colVars(data)
+	}
 
+	sd_pos <- vars > 0
+	if (any(!sd_pos)) {
+		warning(paste(sum(!sd_pos), "features have sd = 0 and will be removed."))
+		data <- data[, sd_pos, drop = FALSE]
+	}
+
+	# 4. Parallelized Processing
+	# BiocParallel allows for easy switching between sequential and parallel cores
+	res <- BiocParallel::bplapply(geneList, function(genesOfEl) {
+		# Ensure only relevant genes are passed to the inner function to save memory
+		suppressWarnings(activScorePC1(
+			data = data,
+			genes = genesOfEl,
+			returnContribution = TRUE,
+			scale = scale,
+			center = center
+		))
+	}, BPPARAM = BPPARAM)
+
+	# 5. Efficient Result Assembly
+	return(list(
+		activScoreMat = vapply(res, function(x) x$activScore, numeric(ncol(data))),
+		contributionList = lapply(res, function(x) x$contribution)
+	))
+}
 
 #' Compute the activation score of gene sets from an expression matrix.
 #'
@@ -133,101 +141,105 @@ activScorePC1list <-
 #'   gene sets.
 #'
 #' @param data An expression matrix (normalized log2(x+1) counts). Genes as rows
-#'   and sample as columns by default. If `db_terms` is not given, must be named by gene
-#'   symbols. Can also be a SingleCellExperiment object.
-#' @param transpose Logical. If `TRUE`, `data` is transposed with `t()` before
-#'   computing the PCA.
-#' @param idGeneDF Dataframe of gene ID correspondence where each column is a
-#'   gene ID type. If not NULL `species` and `speciesData` arguments wont be
-#'   used.
-#' @param scaleScores Logical. Divide expression of gene by its standard
-#'   deviation before doing the PCA.
-#' @param centerScores Logical. Subtract mean to gene expression before doing
-#'   the PCA.
-#' @param database Which annotation database ? valid: database: kegg reactom
-#'   goBP goCC goMF custom.
-#' @param maxSize Maximum number of gene in each term.
-#' @param minSize Minimum number of gene in each term.
-#' @param customAnnot Custom annotation database, as a list of terms, each
-#'   element contain a vector of gene symbols.
-#' @param keggDisease Logical. Retain kegg disease term in kegg database?
-#' @param species Character. Shortname of the species as described in
-#'   `data("bods")`.
-#' @param db_terms A list or NULL. A named list were each element is a database.
+#'   and sample as columns by default. If `db_terms` is not given, must be named
+#'   by gene symbols. Can also be a SummarizedExperiment object.
+#' @param DBsets A list or NULL. A named list were each element is a database.
 #'   Inside each database, a list terms, named by the term and containing gene
 #'   vectors as gene symbols.
-#' @param speciesData object returned by `getSpeciesData`. If not NULL `species`
-#'   argument wont be used.
-#' @return A list where each element is a database of gene set given as input.
-#'   For each database, contain a list of activation score, with gene sets as
-#'   rows and samples as columns ; and the list of contribution (or weight) to
-#'   activation score of each gene per gene set.
-#' @param sce_assay Integer or character, if `data` is a `SingleCellExperiment`
-#'   object, the assay name to use.
+#' @param transpose Logical. If `TRUE`, `data` is transposed with `t()` before
+#'   computing the PCA.
+#' @param scaleScores Logical. Divide expression of gene by its standard
+#'   deviation before doing the PCA.
+#' @param maxSize Maximum number of gene in each term.
+#' @param minSize Minimum number of gene in each term.
+#' @param se_data_assay Integer
+#'   or character, if `data` inherit a `SummarizedExperiment` object, the assay name where the input matrix is.
+#' @param BPPARAM Parallelization parameter as used in BiocParallel::bpparam().
+#' @param returnSummarizedExperiment do not keep the results listed by database but merge them as a single activation SummarizedExperiment object
+#'
+#' @return if `returnSummarizedExperiment = TRUE`
+#' A SummarizedExperiment object, with the activation score as the assay, and gene set metadata stored in the `rowData`.
+#' The gene set metadata contains size_db (number of gene in the term originally present in the given database),
+#' size_universe (number of gene in the term after removing genes not present).
+#' if `returnSummarizedExperiment = FALSE`
+#' A list by database containing each a list with the matrix of activation score, with gene sets as
+#'   columns and samples as rows ; and the list of contribution (or weight) to
+#'   activation score of each gene per gene set, these two elements are superseded by the list of database given as input.
+#'
 #' @export
 #'
 #' @examples
-#' data("bulkLogCounts", package = "oob")
-#' keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-#' geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-#' #same as
-#' geneSetActivScore<-computeActivationScore(bulkLogCounts,database = "kegg")
-computeActivationScore <-
-    function(data,
-             transpose = TRUE,
-             idGeneDF = NULL,
-             scaleScores = FALSE,
-             centerScores = TRUE,
-             database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
-             maxSize = 500,
-             minSize = 2,
-             customAnnot = NULL,
-             keggDisease = FALSE,
-             species = "Human",
-             db_terms = NULL,
-             speciesData = NULL,
-    				 sce_assay = "logcounts") {
-	    	if (inherits(data, "SingleCellExperiment")) {
-	    		sce_obj <- data
-	    		data <- assay(sce_obj, sce_assay)
-	    	}
-        if ( !is.data.frame(data) & !is.matrix(data))
-            stop("data should be a matrix or a dataframe")
-        if(!transpose)
-            data<-t(data)
-        if (! is.character(rownames(data)))
-            stop("rows of expression matrix should be named with genes symbol")
+#' data("bulkLogCounts")
+#' data("keggHuman")
+#' geneSetActivScore<-computeActivationScore(bulkLogCounts, keggHuman)
+computeActivationScore <- function(data,
+																	 DBsets,
+																	 transpose = TRUE,
+																	 scaleScores = FALSE,
+																	 returnSummarizedExperiment = TRUE,
+																	 maxSize = 500,
+																	 minSize = 2,
+																	 se_data_assay = "logcounts",
+																	 BPPARAM = BiocParallel::SerialParam()) {
 
-        valid <- apply(data,1,var) > 0
-				if(sum(!valid)>0) warning(length(valid)," feature(s) with 0 variance, they will be removed from the input")
+	if(!checkDB(DBsets)) stop("DBsets is empty or not valid. Pease check the databases contains a list of characters")
+	if (inherits(data, "SummarizedExperiment")) {
+		data <- SummarizedExperiment::assay(data, se_data_assay)
+	}
 
-        if (is.null(db_terms)) {
-            db_terms <-
-                getDBterms(
-                    geneSym = rownames(data),
-                    idGeneDF = idGeneDF,
-                    database = database,
-                    customAnnot = customAnnot,
-                    keggDisease = keggDisease,
-                    species = species,
-                    returnGenesSymbol = TRUE
-                )
-        }
-        if (length(db_terms) == 0)
-            stop("Error, no term in any database was found")
+	if (!transpose) data <- t(data) # Ensure rows = Genes, cols = Cells
 
-        lapply(db_terms, function(database) {
-            database <-
-                lapply(database, function(genesOfTerm)
-                    intersect(genesOfTerm, rownames(data)))
-            nGenePerTerm <- sapply(database, length)
-            database <-
-                database[nGenePerTerm > minSize & nGenePerTerm < maxSize]
+	rvars <- if(inherits(data, "dgCMatrix")) {
+		sparseMatrixStats::rowVars(data)
+	} else {
+		matrixStats::rowVars(data)
+	}
 
-            return(activScorePC1list(data, database, scale = scaleScores))
-        })
-    }
+	valid <- rvars > 0
+	if (any(!valid)) {
+		warning(sum(!valid), " feature(s) with 0 variance removed.")
+		data <- data[valid, , drop = FALSE]
+	}
+	valid_genes <- rownames(data)
 
+	res <- lapply(DBsets, function(database) {
+		size_db <- lengths(database)
+		database <- lapply(database, function(genes) genes[genes %in% valid_genes])
+		size_universe <- lengths(database)
+		selDB <- size_universe >= minSize & size_universe <= maxSize
+		activScore <- activScorePC1list(data, database[selDB], transpose = TRUE, scale = scaleScores,BPPARAM = BPPARAM)
+		attr(activScore,"size_db") <- size_db[selDB]
+		attr(activScore,"size_universe") <- size_universe[selDB]
+		return(activScore)
+	})
+	res <- res[!sapply(res, is.null)] # Remove empty results
+	if (!returnSummarizedExperiment) return(res)
+
+	db_lengths <- sapply(res, function(x) ncol(x$activScoreMat))
+	db_names <- rep(names(res), times = db_lengths)
+	original_names <- unlist(lapply(res, function(x) colnames(x$activScoreMat)), use.names = FALSE)
+	renamed_terms <- paste0(db_names, ".", original_names)
+
+	# Combine Matrices (Cells x Pathways)
+	combined_scores  <- do.call(cbind, lapply(res, `[[`, "activScoreMat"))
+	# Combine Contributions (List of vectors)
+	combined_contrib <- do.call(c, lapply(res, `[[`, "contributionList"))
+
+	se <- SummarizedExperiment::SummarizedExperiment(
+		assays  = list(activScoreMat = t(combined_scores)),
+		rowData = S4Vectors::DataFrame(
+			original_name = original_names,
+			database      = db_names,
+			size_db       = lapply(res,attr,"size_db") |> unlist(),
+			size_universe = lapply(res,attr,"size_universe") |> unlist(),
+			contributions = I(combined_contrib)
+		)
+	)
+	colnames(se) <- colnames(data)
+	rownames(se) <- renamed_terms
+
+	return(se)
+}
 
 
 #' Compute a "interest score" for a set of genes. Useful for GSEA.
@@ -241,7 +253,7 @@ computeActivationScore <-
 #' @export
 #'
 #' @examples
-#' data("DEgenesPrime_Naive", package = "oob")
+#' data("DEgenesPrime_Naive")
 #' fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
 #'     DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
 fcsScoreDEgenes <-
@@ -259,3 +271,55 @@ fcsScoreDEgenes <-
         pvalScore
     }
 
+
+fastPCA<-function(data,
+				 transpose = TRUE,
+				 scale = FALSE,
+				 center = TRUE,
+				 nPC = min(ncol(data) - 1, nrow(data) - 1, 30),
+				 weight.by.var = TRUE,
+				 ...) {
+
+
+	if(!is.matrix(data)) data <- as.matrix(data)
+	if (transpose)
+		data <- t(data)
+	means <- 0
+	sdeviations <- 1
+	if (center | scale)
+		data <- scale(data, scale = scale, center = center)
+	if (center)
+		means <- attr(data, "scaled:center")
+	if (scale)
+		sdeviations <- attr(data, "scaled:scale")
+
+	resacp <- list()
+	resacp$n.obs <- dim(data)[1]
+
+	resacp$scale <- scale
+	resacp$center <- center
+	resacp$transform <-
+		list(sdeviations = sdeviations, means = means)
+
+	irlbaResults <- irlba::irlba(A = data, nv = nPC, ...)
+	rotation <- irlbaResults$v
+	resacp$sdev <- irlbaResults$d / sqrt(max(1, nrow(data) - 1))
+	if (weight.by.var) {
+		if (nPC > 1) {
+			reducedSpace <- irlbaResults$u %*% diag(irlbaResults$d)
+		} else {
+			reducedSpace <- irlbaResults$u %*% irlbaResults$d
+		}
+	} else {
+		reducedSpace <- irlbaResults$u
+	}
+	rownames(rotation) <- colnames(data)
+	colnames(rotation) <- paste0("PC", seq_len(nPC))
+	rownames(reducedSpace) <- rownames(data)
+	colnames(reducedSpace) <- colnames(rotation)
+	resacp$x <- reducedSpace
+	resacp$rotation <- rotation
+	resacp$propExplVar <- resacp$sdev ^ 2 / sum(resacp$sdev ^ 2)
+	resacp$isFastPCA <- TRUE
+	return(resacp)
+}

@@ -6,40 +6,28 @@
 \usage{
 enrich.fcs(
   x,
-  idGeneDF = NULL,
-  database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
+  DBsets,
   maxSize = 500,
   minSize = 2,
-  customAnnot = NULL,
   returnGenes = FALSE,
-  keggDisease = FALSE,
-  species = "Human",
-  db_terms = NULL,
-  speciesData = NULL,
+  BPPARAM = BiocParallel::SerialParam(),
   ...
 )
 }
 \arguments{
 \item{x}{vector or dataframe/matrix of one column. Values are used to classify the genes, example, it can be Log2(Fold-Change0). Genes are contained in the names/rownames of the vector/dataframe. Example of valid x: x<-rnorm(n = 4); names(x)<-c("GATA2","SOX17","KLF4","POU5F1")}
 
-\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
+\item{DBsets}{A list or NULL. A named list were each element is a database.
+Inside each database, a list terms, named by the term and containing gene
+vectors as gene symbols.}
 
-\item{database}{Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom}
+\item{maxSize}{Maximum number of gene in each term.}
 
-\item{maxSize}{maximum number of gene in each term}
-
-\item{minSize}{Minimum number of gene in each term}
+\item{minSize}{Minimum number of gene in each term.}
 
 \item{returnGenes}{return genes that were the most important for the enrichment of term}
 
-\item{keggDisease}{Logical. Retain kegg disease term ?}
-
-\item{species}{Character. Shortname of the species as described in \code{data("bods")}.}
-
-\item{db_terms}{A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.
-If this argument is not NULL, no additional database are downloaded.}
-
-\item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
+\item{BPPARAM}{Parallelization parameter as used in BiocParallel::bpparam().}
 
 \item{...}{Additional parameters that are passed to fgsea}
 }
@@ -61,9 +49,10 @@ A data frame with the following columns:
 Functional class scoring enrichment (fgsea algorithm)
 }
 \examples{
-data("DEgenesPrime_Naive",package = "oob")
+data("DEgenesPrime_Naive")
+data("keggHuman")
 fcsScore<-fcsScoreDEgenes(rownames(DEgenesPrime_Naive),
     DEgenesPrime_Naive$pvalue,DEgenesPrime_Naive$log2FoldChange)
-resEnrich<-enrich.fcs(fcsScore,database = "kegg",species = "Human")
+resEnrich<-enrich.fcs(fcsScore,DBsets =  keggHuman)
 head(resEnrich)
 }

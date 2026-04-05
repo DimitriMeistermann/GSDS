@@ -6,69 +6,51 @@
 \usage{
 computeActivationScore(
   data,
+  DBsets,
   transpose = TRUE,
-  idGeneDF = NULL,
   scaleScores = FALSE,
-  centerScores = TRUE,
-  database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
+  returnSummarizedExperiment = TRUE,
   maxSize = 500,
   minSize = 2,
-  customAnnot = NULL,
-  keggDisease = FALSE,
-  species = "Human",
-  db_terms = NULL,
-  speciesData = NULL,
-  sce_assay = "logcounts"
+  se_data_assay = "logcounts",
+  BPPARAM = BiocParallel::SerialParam()
 )
 }
 \arguments{
 \item{data}{An expression matrix (normalized log2(x+1) counts). Genes as rows
-and sample as columns by default. If \code{db_terms} is not given, must be named by gene
-symbols. Can also be a SingleCellExperiment object.}
+and sample as columns by default. If \code{db_terms} is not given, must be named
+by gene symbols. Can also be a SummarizedExperiment object.}
+
+\item{DBsets}{A list or NULL. A named list were each element is a database.
+Inside each database, a list terms, named by the term and containing gene
+vectors as gene symbols.}
 
 \item{transpose}{Logical. If \code{TRUE}, \code{data} is transposed with \code{t()} before
 computing the PCA.}
 
-\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a
-gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be
-used.}
-
 \item{scaleScores}{Logical. Divide expression of gene by its standard
 deviation before doing the PCA.}
 
-\item{centerScores}{Logical. Subtract mean to gene expression before doing
-the PCA.}
-
-\item{database}{Which annotation database ? valid: database: kegg reactom
-goBP goCC goMF custom.}
+\item{returnSummarizedExperiment}{do not keep the results listed by database but merge them as a single activation SummarizedExperiment object}
 
 \item{maxSize}{Maximum number of gene in each term.}
 
 \item{minSize}{Minimum number of gene in each term.}
 
-\item{customAnnot}{Custom annotation database, as a list of terms, each
-element contain a vector of gene symbols.}
+\item{se_data_assay}{Integer
+or character, if \code{data} inherit a \code{SummarizedExperiment} object, the assay name where the input matrix is.}
 
-\item{keggDisease}{Logical. Retain kegg disease term in kegg database?}
-
-\item{species}{Character. Shortname of the species as described in
-\code{data("bods")}.}
-
-\item{db_terms}{A list or NULL. A named list were each element is a database.
-Inside each database, a list terms, named by the term and containing gene
-vectors as gene symbols.}
-
-\item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species}
-argument wont be used.}
-
-\item{sce_assay}{Integer or character, if \code{data} is a \code{SingleCellExperiment}
-object, the assay name to use.}
+\item{BPPARAM}{Parallelization parameter as used in BiocParallel::bpparam().}
 }
 \value{
-A list where each element is a database of gene set given as input.
-For each database, contain a list of activation score, with gene sets as
-rows and samples as columns ; and the list of contribution (or weight) to
-activation score of each gene per gene set.
+if \code{returnSummarizedExperiment = TRUE}
+A SummarizedExperiment object, with the activation score as the assay, and gene set metadata stored in the \code{rowData}.
+The gene set metadata contains size_db (number of gene in the term originally present in the given database),
+size_universe (number of gene in the term after removing genes not present).
+if \code{returnSummarizedExperiment = FALSE}
+A list by database containing each a list with the matrix of activation score, with gene sets as
+columns and samples as rows ; and the list of contribution (or weight) to
+activation score of each gene per gene set, these two elements are superseded by the list of database given as input.
 }
 \description{
 Perform a PCA for each gene set, from the matrix of \emph{genes from
@@ -76,9 +58,7 @@ gene set × all samples}. Return the first PCs as activation scores of the
 gene sets.
 }
 \examples{
-data("bulkLogCounts", package = "oob")
-keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
-#same as
-geneSetActivScore<-computeActivationScore(bulkLogCounts,database = "kegg")
+data("bulkLogCounts")
+data("keggHuman")
+geneSetActivScore<-computeActivationScore(bulkLogCounts, keggHuman)
 }

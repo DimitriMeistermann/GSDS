@@ -4,10 +4,12 @@
 \alias{getSpeciesData}
 \title{Return gene id correspondence, GO species code and KEGG species code}
 \usage{
-getSpeciesData(sample.species = "Human")
+getSpeciesData(species = "Human", species_df = NULL)
 }
 \arguments{
-\item{sample.species}{Character. Shortname of the species as described in \code{data("bods")}.}
+\item{species}{Character. Shortname of the species (rownames in \code{data("species_df")}).}
+
+\item{species_df}{Eventually an updated \code{species_df} dataframe.}
 }
 \value{
 A list describing specific data for the species (gene IDs, annotation package...).
@@ -22,6 +24,6 @@ require(org.Hs.eg.db)
 getSpeciesData("Human") |> str()
 
 #Available species
-data("bods", package = "gage")
-bods[,"species"]
+data("species_df")
+species_df[,"species"]
 }

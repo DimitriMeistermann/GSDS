@@ -4,18 +4,7 @@
 \alias{enrich.ora}
 \title{Over Representation Analysis from Hypergeometric test}
 \usage{
-enrich.ora(
-  x,
-  idGeneDF = NULL,
-  database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
-  minSize = 2,
-  maxSize = 500,
-  returnGenes = FALSE,
-  keggDisease = FALSE,
-  species = "Human",
-  db_terms = NULL,
-  speciesData = NULL
-)
+enrich.ora(x, DBsets, minSize = 2, maxSize = 500, returnGenes = FALSE)
 }
 \arguments{
 \item{x}{vector or dataframe/matrix of one column.
@@ -24,35 +13,27 @@ Genes are contained in the names/rownames of the vector/dataframe.
 Example of valid x: x<-c(TRUE,TRUE,FALSE,FALSE); names(x)<-c("GATA2","SOX17","KLF4","POU5F1").
 In this case, GATA2, SOX17, KLF4, POU5F1 are the universe of gene and GATA2 and SOX17 are the genes of interest}
 
-\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
-
-\item{database}{Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom}
+\item{DBsets}{A list or NULL. A named list were each element is a database.
+Inside each database, a list terms, named by the term and containing gene
+vectors as gene symbols.}
 
 \item{minSize}{Minimum number of gene in each term.}
 
 \item{maxSize}{Maximum number of gene in each term.}
 
-\item{returnGenes}{Return genes that were the most important for the enrichment of term.}
-
-\item{keggDisease}{Logical. Retain kegg disease term in kegg database?}
-
-\item{species}{Character. Shortname of the species as described in \code{data("bods")}.}
-
-\item{db_terms}{A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.}
-
-\item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
-
-\item{customAnnot}{Custom annotation database, as a list of terms, each element contain a vector of gene symbols.}
+\item{returnGenes}{return genes that were the most important for the enrichment of term}
 }
 \value{
 A dataframe with the following columns:
 \itemize{
 \item term: name of the term/gene set
 \item database: origin of the gene set
-\item size: number of gene in the term after removing genes not present.
+\item size_db: number of gene in the term originally present in the given database.
+\item size_universe: number of gene in the term after removing genes not present.
 \item obsOverlap: number of gene in common between set of interest and term
 \item expOverlap: expected number of gene in common between set of interest and term
-\item OEdeviation: $\frac{obs-exp}{\sqrt{Universe}}$, normalized deviation from expected value
+\item OEdeviation: \eqn{\frac{obs - exp}{\sqrt{Universe}}}, normalized deviation from expected value
+\item log2OR: log2 of the Odds Ratio
 \item pval: p-value based on a Hypergeometric test
 \item padj: a BH-adjusted p-value
 \item genes (if \code{returnGenes}). Vector of genes of the term.
@@ -62,8 +43,9 @@ A dataframe with the following columns:
 Over Representation Analysis from Hypergeometric test
 }
 \examples{
-data("DEgenesPrime_Naive" ,package = "oob")
+data("DEgenesPrime_Naive")
+data("keggHuman")
 vectorIsDE<-DEgenesPrime_Naive$isDE!="NONE";names(vectorIsDE)<-rownames(DEgenesPrime_Naive)
-resEnrich<-enrich.ora(vectorIsDE,database = "kegg",species = "Human")
+resEnrich<-enrich.ora(vectorIsDE, DBsets = keggHuman)
 head(resEnrich)
 }

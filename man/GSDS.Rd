@@ -6,26 +6,28 @@
 \usage{
 GSDS(
   geneSetActivScore = NULL,
+  DBsets = NULL,
   data = NULL,
   colData,
   contrast,
-  idGeneDF = NULL,
-  database = c("kegg", "reactom", "goBP", "goCC", "goMF"),
+  formula = NULL,
   maxSize = 500,
   minSize = 2,
-  customAnnot = NULL,
-  keggDisease = FALSE,
-  species = "Human",
-  db_terms = NULL,
-  speciesData = NULL,
-  sce_assay = "logcounts"
+  se_data_assay = "logcounts",
+  return_seobject = TRUE,
+  BPPARAM = BiocParallel::SerialParam()
 )
 }
 \arguments{
-\item{geneSetActivScore}{A list of database with an element "eigen" containing the matrix of gene set activation score (see what \code{computeActivationScore} returns).
-If NULL, this is computed automatically from the \code{data} and the gene set database given via \code{db_terms} or requested via \code{database}.}
+\item{geneSetActivScore}{A \code{SummarizedExperiment} as returned by \code{computeActivationScore}}
 
-\item{data}{An expression matrix (normalized log2(x+1) counts). Genes as rows and sample as columns. If \code{db_terms} is not given, must be named by gene symbols. Can also be a SingleCellExperiment object.}
+\item{DBsets}{A list or NULL. A named list were each element is a database.
+Inside each database, a list terms, named by the term and containing gene
+vectors as gene symbols.}
+
+\item{data}{An expression matrix (normalized log2(x+1) counts). Genes as rows
+and sample as columns by default. If \code{db_terms} is not given, must be named
+by gene symbols. Can also be a SummarizedExperiment object.}
 
 \item{colData}{An annotation dataframe. Each column is a feature, each row a sample. Same number of samples than in \code{data}.}
 
@@ -36,34 +38,28 @@ If NULL, this is computed automatically from the \code{data} and the gene set da
 \item Condition considered as the target group.
 }}
 
-\item{idGeneDF}{Dataframe of gene ID correspondence where each column is a gene ID type. If not NULL \code{species} and \code{speciesData} arguments wont be used.}
-
-\item{database}{Which annotation database ? valid: database: kegg reactom goBP goCC goMF custom.}
+\item{formula}{Formula for the linear modelling, if NULL formula is group. Example : \code{~ Condition + Batch} if condition and
+Batch are colnames of colData}
 
 \item{maxSize}{Maximum number of gene in each term.}
 
 \item{minSize}{Minimum number of gene in each term.}
 
-\item{customAnnot}{Custom annotation database, as a list of terms, each element contain a vector of gene symbols.}
+\item{se_data_assay}{Integer
+or character, if \code{data} inherit a \code{SummarizedExperiment} object, the assay name where the input matrix is.}
 
-\item{keggDisease}{Logical. Retain kegg disease term in kegg database?}
-
-\item{species}{Character. Shortname of the species as described in \code{data("bods")}.}
-
-\item{db_terms}{A list or NULL. A named list were each element is a database. Inside each database, a list terms, named by the term and containing gene vectors as gene symbols.}
-
-\item{speciesData}{object returned by \code{getSpeciesData}. If not NULL \code{species} argument wont be used.}
-
-\item{sce_assay}{Integer
-or character, if \code{data} is a \code{SingleCellExperiment} object, the assay name
+\item{return_seobject}{return a \code{SummarizedExperiment} object, with rowData annotated with GSDS results instead of the result dataframe.
 to use.}
+
+\item{BPPARAM}{Parallelization parameter as used in BiocParallel::bpparam().}
 }
 \value{
-A dataframe with the following columns:
+A dataframe name by gene set IDs, with the following columns:
 \itemize{
-\item term: name of the term/gene set
+\item original_name: name of the term/gene set as it is in the provided database
 \item database: origin of the gene set
-\item size: number of gene in the term after removing genes not present.
+\item size_db: number of gene in the gene set.
+\item size_universe:number of gene in the gene set that are presesent in the data (e.g. used for computing the activation score)
 \item baseMean: mean of activation score in the gene set
 \item sd: standard deviation  in the gene set
 \item log2FoldChange: Log(Log Fold Change) of activation score between the two tested groups.
@@ -75,17 +71,25 @@ A dataframe with the following columns:
 Gene Set Differential Scoring (GSDS)
 }
 \examples{
-data("bulkLogCounts", package = "oob")
-data("sampleAnnot", package = "oob")
+data("bulkLogCounts")
+data("sampleAnnot")
+data("keggHuman")
 
-keggDB<-getDBterms(rownames(bulkLogCounts),database = "kegg")
-geneSetActivScore<-computeActivationScore(bulkLogCounts,db_terms = keggDB)
+geneSetActivScore<-computeActivationScore(bulkLogCounts,DBsets = keggHuman)
 resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,
-    contrast = c("culture_media","T2iLGO","KSR+FGF2"),db_terms =  keggDB)
+    contrast = c("culture_media","T2iLGO","KSR+FGF2"))
+head(rowData(resGSDS))
+# correct for the line effect
+resGSDS<-GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,
+    contrast = c("culture_media","T2iLGO","KSR+FGF2"), formula = ~ culture_media + line)
+head(rowData(resGSDS))
 
+#just a data frame
+head(GSDS(geneSetActivScore = geneSetActivScore,colData = sampleAnnot,
+    contrast = c("culture_media","T2iLGO","KSR+FGF2"),DBsets =  keggHuman,
+    return_seobject = FALSE))
 # or
 resGSDS<-GSDS(data = bulkLogCounts,colData = sampleAnnot,
-    contrast = c("culture_media","T2iLGO","KSR+FGF2"),database = "kegg")
+    contrast = c("culture_media","T2iLGO","KSR+FGF2"),DBsets = keggHuman)
 
-head(resGSDS)
 }
