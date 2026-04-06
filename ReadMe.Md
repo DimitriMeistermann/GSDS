@@ -28,9 +28,9 @@ For a manual installation of dependencies:
     BiocManager::install( c("SummarizedExperiment","grid",
     "AnnotationDbi","biomaRt","BiocParallel","ComplexHeatmap",
     "circlize","coop","data.table","fgsea","ggplot2","GO.db",
-    "irlba","KEGGREST",""matrixStats","RSQLite","ggrepel","labeling",
+    "irlba","KEGGREST","matrixStats","RSQLite","ggrepel","labeling",
     "scales","sparseMatrixStats","RSQLite","S4Vectors","knitr",
-    "rmarkdown","reactome.db","qualpalr")
+    "rmarkdown","reactome.db","qualpalr","Rcpp","RcppArmadillo"))
 
 The package is ready to load.
 
