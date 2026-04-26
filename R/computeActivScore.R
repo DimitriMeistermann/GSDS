@@ -38,7 +38,7 @@ activScorePC1 <- function (data,
 		data <- assay(sce_obj, se_data_assay)
 	}
 	if (transpose)
-		data <- t(data)
+		data <- Matrix::t(data)
 	if (sum(!genes %in% colnames(data)) > 0)
 		stop("genes should be a subset of data row names")
 	pca <- fastPCA(
@@ -50,9 +50,10 @@ activScorePC1 <- function (data,
 	)
 	activScore <- pca$x[, 1]
 	contribution <- pca$rotation[, 1]
-	correlation_val <- cor(rowMeans(data[, genes, drop = FALSE]), activScore)
+	correlation_val <- cor(Matrix::rowMeans(data[, genes, drop = FALSE]), activScore)
 	if (!is.na(correlation_val) && correlation_val < 0) {
 		activScore <- -activScore
+		contribution <- -contribution
 	}
 	if (returnContribution) {
 		list(activScore = activScore, contribution = contribution)
@@ -70,13 +71,9 @@ activScorePC1 <- function (data,
 #' @param scale Logical. Divide expression of gene by its standard deviation before doing the PCA.
 #' @param center Logical. Subtract mean to gene expression before doing the PCA.
 #' @param transpose Logical. If TRUE, `data` is transposed with `t()` before computing the PCA.
-#' @param se_data_assay Integer
-#'   or character, if `data` is a `SummarizedExperiment` object, the assay name
-#'   to use.
 #' @return A list with two elements:
 #' - activScoreMat: A matrix of activation score, with gene sets as rows and samples as columns.
 #' - contributionList: A list of contribution (or weight) to activation score of each gene per gene set.
-#' @export
 #'
 #' @examples
 #' data("bulkLogCounts")
@@ -89,50 +86,28 @@ activScorePC1list <- function(data,
 															transpose = TRUE,
 															scale = FALSE,
 															center = TRUE,
-															se_data_assay = "logcounts",
 															BPPARAM = BiocParallel::SerialParam()) {
 
-	# 1. Faster SCE Handling
-	if (inherits(data, "SummarizedExperiment")) {
-		data <- SummarizedExperiment::assay(data, se_data_assay)
-	}
+	if (transpose) data <- Matrix::t(data)
 
-	# 2. Efficient Transposition
-	if (!transpose) data <- t(data)
-	if(is.data.frame(data)) data <- as.matrix(data)
-	# 3. High-performance Variance Filtering
-	# Using matrixStats or sparseMatrixStats is significantly faster than apply()
-	if (inherits(data, "dgCMatrix")) {
-		vars <- sparseMatrixStats::colVars(data)
-	} else {
-		vars <- matrixStats::colVars(data)
-	}
-
-	sd_pos <- vars > 0
-	if (any(!sd_pos)) {
-		warning(paste(sum(!sd_pos), "features have sd = 0 and will be removed."))
-		data <- data[, sd_pos, drop = FALSE]
-	}
-
-	# 4. Parallelized Processing
-	# BiocParallel allows for easy switching between sequential and parallel cores
 	res <- BiocParallel::bplapply(geneList, function(genesOfEl) {
 		# Ensure only relevant genes are passed to the inner function to save memory
 		suppressWarnings(activScorePC1(
-			data = data,
+			data = data[,genesOfEl],
 			genes = genesOfEl,
 			returnContribution = TRUE,
 			scale = scale,
-			center = center
+			center = center,
+			transpose = FALSE
 		))
 	}, BPPARAM = BPPARAM)
 
-	# 5. Efficient Result Assembly
 	return(list(
-		activScoreMat = vapply(res, function(x) x$activScore, numeric(ncol(data))),
+		activScoreMat = Matrix::t(vapply(res, function(x) x$activScore, numeric(nrow(data)))),
 		contributionList = lapply(res, function(x) x$contribution)
 	))
 }
+
 
 #' Compute the activation score of gene sets from an expression matrix.
 #'
@@ -163,7 +138,7 @@ activScorePC1list <- function(data,
 #' size_universe (number of gene in the term after removing genes not present).
 #' if `returnSummarizedExperiment = FALSE`
 #' A list by database containing each a list with the matrix of activation score, with gene sets as
-#'   columns and samples as rows ; and the list of contribution (or weight) to
+#'   rowa and samples as columns ; and the list of contribution (or weight) to
 #'   activation score of each gene per gene set, these two elements are superseded by the list of database given as input.
 #'
 #' @export
@@ -187,46 +162,45 @@ computeActivationScore <- function(data,
 		data <- SummarizedExperiment::assay(data, se_data_assay)
 	}
 
-	if (!transpose) data <- t(data) # Ensure rows = Genes, cols = Cells
+	if (transpose) data <- Matrix::t(data) # Ensure rows = Genes, cols = Cells
+	if(is.data.frame(data)) data <- as.matrix(data)
 
 	rvars <- if(inherits(data, "dgCMatrix")) {
-		sparseMatrixStats::rowVars(data)
+		sparseMatrixStats::colVars(data)
 	} else {
-		matrixStats::rowVars(data)
+		matrixStats::colVars(data)
 	}
 
 	valid <- rvars > 0
 	if (any(!valid)) {
 		warning(sum(!valid), " feature(s) with 0 variance removed.")
-		data <- data[valid, , drop = FALSE]
+		data <- data[, valid, drop = FALSE]
 	}
-	valid_genes <- rownames(data)
-
+	valid_genes <- colnames(data)
 	res <- lapply(DBsets, function(database) {
 		size_db <- lengths(database)
 		database <- lapply(database, function(genes) genes[genes %in% valid_genes])
 		size_universe <- lengths(database)
 		selDB <- size_universe >= minSize & size_universe <= maxSize
-		activScore <- activScorePC1list(data, database[selDB], transpose = TRUE, scale = scaleScores,BPPARAM = BPPARAM)
+		activScore <- activScorePC1list(data, database[selDB], transpose = FALSE, scale = scaleScores,BPPARAM = BPPARAM)
 		attr(activScore,"size_db") <- size_db[selDB]
 		attr(activScore,"size_universe") <- size_universe[selDB]
 		return(activScore)
 	})
 	res <- res[!sapply(res, is.null)] # Remove empty results
 	if (!returnSummarizedExperiment) return(res)
-
-	db_lengths <- sapply(res, function(x) ncol(x$activScoreMat))
+	db_lengths <- sapply(res, function(x) nrow(x$activScoreMat))
 	db_names <- rep(names(res), times = db_lengths)
-	original_names <- unlist(lapply(res, function(x) colnames(x$activScoreMat)), use.names = FALSE)
+	original_names <- unlist(lapply(res, function(x) rownames(x$activScoreMat)), use.names = FALSE)
 	renamed_terms <- paste0(db_names, ".", original_names)
 
 	# Combine Matrices (Cells x Pathways)
-	combined_scores  <- do.call(cbind, lapply(res, `[[`, "activScoreMat"))
+	combined_scores  <- do.call(rbind, lapply(res, `[[`, "activScoreMat"))
 	# Combine Contributions (List of vectors)
 	combined_contrib <- do.call(c, lapply(res, `[[`, "contributionList"))
 
 	se <- SummarizedExperiment::SummarizedExperiment(
-		assays  = list(activScoreMat = t(combined_scores)),
+		assays  = list(activScoreMat = combined_scores),
 		rowData = S4Vectors::DataFrame(
 			original_name = original_names,
 			database      = db_names,
@@ -235,7 +209,7 @@ computeActivationScore <- function(data,
 			contributions = I(combined_contrib)
 		)
 	)
-	colnames(se) <- colnames(data)
+	colnames(se) <- rownames(data)
 	rownames(se) <- renamed_terms
 
 	return(se)

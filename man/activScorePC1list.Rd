@@ -10,7 +10,6 @@ activScorePC1list(
   transpose = TRUE,
   scale = FALSE,
   center = TRUE,
-  se_data_assay = "logcounts",
   BPPARAM = BiocParallel::SerialParam()
 )
 }
@@ -24,10 +23,6 @@ activScorePC1list(
 \item{scale}{Logical. Divide expression of gene by its standard deviation before doing the PCA.}
 
 \item{center}{Logical. Subtract mean to gene expression before doing the PCA.}
-
-\item{se_data_assay}{Integer
-or character, if \code{data} is a \code{SummarizedExperiment} object, the assay name
-to use.}
 
 \item{BPPARAM}{Parallelization parameter as used in BiocParallel::bpparam().}
 }

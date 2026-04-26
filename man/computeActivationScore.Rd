@@ -49,7 +49,7 @@ The gene set metadata contains size_db (number of gene in the term originally pr
 size_universe (number of gene in the term after removing genes not present).
 if \code{returnSummarizedExperiment = FALSE}
 A list by database containing each a list with the matrix of activation score, with gene sets as
-columns and samples as rows ; and the list of contribution (or weight) to
+rowa and samples as columns ; and the list of contribution (or weight) to
 activation score of each gene per gene set, these two elements are superseded by the list of database given as input.
 }
 \description{
